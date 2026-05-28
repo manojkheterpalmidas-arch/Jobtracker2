@@ -1,6 +1,8 @@
 import type {
   ContactJobChange,
   SavedSearchRun,
+  SavedSearchRunDetail,
+  SavedSearchRunDetailResponse,
   SavedSearchRunsResponse,
   SearchRequest,
   SearchResponse
@@ -178,6 +180,15 @@ function mapStoredSearchRun(run: StoredSearchRun): SavedSearchRun {
   };
 }
 
+function mapStoredSearchRunDetail(run: StoredSearchRun): SavedSearchRunDetail {
+  return {
+    ...mapStoredSearchRun(run),
+    warnings: run.warnings,
+    request: run.request,
+    results: run.results
+  };
+}
+
 function mapSupabaseSearchRun(row: Record<string, unknown>): SavedSearchRun {
   return {
     id: String(row.id),
@@ -196,6 +207,27 @@ function mapSupabaseSearchRun(row: Record<string, unknown>): SavedSearchRun {
     creditsUsed: typeof row.credits_used === "number" ? row.credits_used : undefined,
     apiCallsUsed: Number(row.api_calls_used ?? 0),
     signalLookupsRequested: Number(row.signal_lookups_requested ?? 0)
+  };
+}
+
+function asStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function asResults(value: unknown) {
+  return Array.isArray(value) ? (value as ContactJobChange[]) : [];
+}
+
+function mapSupabaseSearchRunDetail(row: Record<string, unknown>): SavedSearchRunDetail {
+  return {
+    ...mapSupabaseSearchRun(row),
+    warnings: asStringArray(row.warnings),
+    request: asRecord(row.request),
+    results: asResults(row.results)
   };
 }
 
@@ -269,6 +301,64 @@ export async function listSearchRuns(limit = 20): Promise<SavedSearchRunsRespons
       storage: {
         status: "failed",
         message: "Could not load saved searches from Supabase."
+      }
+    };
+  }
+}
+
+export async function getSearchRun(id: string): Promise<SavedSearchRunDetailResponse> {
+  const config = supabaseConfig();
+
+  if (!config) {
+    const run = getSearchRunStore().find((item) => item.id === id);
+
+    return {
+      run: run ? mapStoredSearchRunDetail(run) : undefined,
+      storage: {
+        status: "memory",
+        message: "Supabase is not configured; showing only searches saved in this server session."
+      }
+    };
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    id: `eq.${id}`,
+    limit: "1"
+  });
+
+  try {
+    const response = await fetch(`${config.url}/rest/v1/search_runs?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        apikey: config.serviceRoleKey,
+        Authorization: `Bearer ${config.serviceRoleKey}`
+      },
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      return {
+        storage: {
+          status: "failed",
+          message: "Could not load saved search results from Supabase."
+        }
+      };
+    }
+
+    const rows = (await response.json()) as Array<Record<string, unknown>>;
+
+    return {
+      run: rows[0] ? mapSupabaseSearchRunDetail(rows[0]) : undefined,
+      storage: {
+        status: "supabase"
+      }
+    };
+  } catch {
+    return {
+      storage: {
+        status: "failed",
+        message: "Could not load saved search results from Supabase."
       }
     };
   }
