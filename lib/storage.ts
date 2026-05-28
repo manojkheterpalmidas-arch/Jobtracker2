@@ -6,6 +6,7 @@ import type {
   SearchRequest,
   SearchResponse
 } from "@/lib/types";
+import { getServerSupabaseConfig } from "@/lib/supabaseClient";
 
 type StoredWebhookEvent = {
   id: string;
@@ -46,16 +47,15 @@ function getSearchRunStore() {
 }
 
 function supabaseConfig() {
-  const url = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const config = getServerSupabaseConfig();
 
-  if (!url || !serviceRoleKey) {
+  if (!config) {
     return undefined;
   }
 
   return {
-    url: url.replace(/\/+$/, ""),
-    serviceRoleKey
+    url: config.url,
+    serviceRoleKey: config.key
   };
 }
 
