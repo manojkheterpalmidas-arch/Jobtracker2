@@ -1,9 +1,11 @@
 "use client";
 
-import { Clock3, Database, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Clock3, Database, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { SavedSearchRunsResponse } from "@/lib/types";
 
 type SavedSearchesProps = {
@@ -32,7 +34,29 @@ export function SavedSearches({
   onViewResults,
   onDelete
 }: SavedSearchesProps) {
-  const runs = history?.runs ?? [];
+  const [query, setQuery] = useState("");
+  const runs = useMemo(() => history?.runs ?? [], [history?.runs]);
+  const filteredRuns = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return runs;
+    }
+
+    return runs.filter((run) => {
+      return [
+        run.companyName,
+        run.companyDomain,
+        run.location,
+        run.discipline,
+        run.titleFilterMode
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery);
+    });
+  }, [query, runs]);
 
   return (
     <Card>
@@ -50,6 +74,18 @@ export function SavedSearches({
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 grid gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search saved companies"
+              className="pl-9"
+            />
+          </div>
+        </div>
+
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading saved searches...</p>
         ) : null}
@@ -60,8 +96,12 @@ export function SavedSearches({
           </p>
         ) : null}
 
+        {!loading && runs.length > 0 && !filteredRuns.length ? (
+          <p className="text-sm text-muted-foreground">No saved searches match this filter.</p>
+        ) : null}
+
         <div className="grid max-h-[720px] gap-3 overflow-y-auto pr-1">
-          {runs.map((run) => (
+          {filteredRuns.map((run) => (
             <div key={run.id} className="rounded-lg border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
