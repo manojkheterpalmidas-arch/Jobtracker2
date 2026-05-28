@@ -100,9 +100,9 @@ export function SavedSearches({
           <p className="text-sm text-muted-foreground">No saved searches match this filter.</p>
         ) : null}
 
-        <div className="grid max-h-[720px] gap-3 overflow-y-auto pr-1">
+        <div className="grid max-h-[560px] gap-3 overflow-y-auto pr-1">
           {filteredRuns.map((run) => (
-            <div key={run.id} className="rounded-lg border bg-background p-4">
+            <div key={run.id} className="rounded-lg border bg-background p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{run.companyName || run.companyDomain || "Unnamed company"}</p>
@@ -116,15 +116,15 @@ export function SavedSearches({
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                 <div className="rounded-md bg-muted p-2">
                   <p className="text-muted-foreground">Contacts</p>
-                  <p className="text-base font-semibold">{run.totalContactsFound}</p>
+                  <p className="text-sm font-semibold">{run.totalContactsFound}</p>
                 </div>
                 <div className="rounded-md bg-muted p-2">
                   <p className="text-muted-foreground">Changes</p>
-                  <p className="text-base font-semibold">{run.jobChangesFound}</p>
+                  <p className="text-sm font-semibold">{run.jobChangesFound}</p>
                 </div>
                 <div className="rounded-md bg-muted p-2">
                   <p className="text-muted-foreground">Credits</p>
-                  <p className="text-base font-semibold">{run.creditsUsed ?? 0}</p>
+                  <p className="text-sm font-semibold">{run.creditsUsed ?? 0}</p>
                 </div>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
