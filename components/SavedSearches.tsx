@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, Database } from "lucide-react";
+import { Clock3, Database, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,9 @@ type SavedSearchesProps = {
   history?: SavedSearchRunsResponse | null;
   loading: boolean;
   loadingRunId?: string | null;
+  deletingRunId?: string | null;
   onViewResults: (id: string) => void;
+  onDelete: (id: string) => void;
 };
 
 function formatDate(value: string) {
@@ -22,7 +24,14 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function SavedSearches({ history, loading, loadingRunId, onViewResults }: SavedSearchesProps) {
+export function SavedSearches({
+  history,
+  loading,
+  loadingRunId,
+  deletingRunId,
+  onViewResults,
+  onDelete
+}: SavedSearchesProps) {
   const runs = history?.runs ?? [];
 
   return (
@@ -51,7 +60,7 @@ export function SavedSearches({ history, loading, loadingRunId, onViewResults }:
           </p>
         ) : null}
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid max-h-[720px] gap-3 overflow-y-auto pr-1">
           {runs.map((run) => (
             <div key={run.id} className="rounded-lg border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
@@ -81,16 +90,27 @@ export function SavedSearches({ history, loading, loadingRunId, onViewResults }:
               <p className="mt-3 text-xs text-muted-foreground">
                 {run.location || "Any location"} · {run.durationDays ?? "-"} days · {run.signalLookupsRequested} signal checks
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-3 w-full"
-                onClick={() => onViewResults(run.id)}
-                disabled={loadingRunId === run.id}
-              >
-                {loadingRunId === run.id ? "Loading..." : "View results"}
-              </Button>
+              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewResults(run.id)}
+                  disabled={loadingRunId === run.id || deletingRunId === run.id}
+                >
+                  {loadingRunId === run.id ? "Loading..." : "View results"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onDelete(run.id)}
+                  disabled={deletingRunId === run.id}
+                  title="Delete saved search"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
