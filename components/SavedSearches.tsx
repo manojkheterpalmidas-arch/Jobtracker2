@@ -2,12 +2,15 @@
 
 import { Clock3, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SavedSearchRunsResponse } from "@/lib/types";
 
 type SavedSearchesProps = {
   history?: SavedSearchRunsResponse | null;
   loading: boolean;
+  loadingRunId?: string | null;
+  onViewResults: (id: string) => void;
 };
 
 function formatDate(value: string) {
@@ -19,7 +22,7 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function SavedSearches({ history, loading }: SavedSearchesProps) {
+export function SavedSearches({ history, loading, loadingRunId, onViewResults }: SavedSearchesProps) {
   const runs = history?.runs ?? [];
 
   return (
@@ -78,6 +81,16 @@ export function SavedSearches({ history, loading }: SavedSearchesProps) {
               <p className="mt-3 text-xs text-muted-foreground">
                 {run.location || "Any location"} · {run.durationDays ?? "-"} days · {run.signalLookupsRequested} signal checks
               </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => onViewResults(run.id)}
+                disabled={loadingRunId === run.id}
+              >
+                {loadingRunId === run.id ? "Loading..." : "View results"}
+              </Button>
             </div>
           ))}
         </div>
