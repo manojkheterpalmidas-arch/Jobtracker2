@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertTriangle, Database, Loader2 } from "lucide-react";
+import { AlertTriangle, Database, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { SearchForm } from "@/components/SearchForm";
 import { ResultsTable } from "@/components/ResultsTable";
 import { SavedSearches } from "@/components/SavedSearches";
 import { SummaryCards } from "@/components/SummaryCards";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { SavedSearchRunsResponse, SearchRequest, SearchResponse } from "@/lib/types";
 
 function csvValue(value: unknown) {
@@ -70,6 +71,7 @@ export function TrackerDashboard() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
+  const [savedPanelOpen, setSavedPanelOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -157,6 +159,7 @@ export function TrackerDashboard() {
           message: "Loaded from saved search history."
         }
       });
+      setSavedPanelOpen(false);
     } catch (savedError) {
       setError(savedError instanceof Error ? savedError.message : "Saved search results could not be loaded.");
     } finally {
@@ -200,6 +203,13 @@ export function TrackerDashboard() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => setSavedPanelOpen(true)}>
+                <Database className="h-4 w-4" aria-hidden="true" />
+                Saved searches
+                {history?.runs?.length ? (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{history.runs.length}</span>
+                ) : null}
+              </Button>
               <Badge variant="success">Domain-first</Badge>
               <Badge variant="muted">Server-side Lusha calls</Badge>
               {response?.summary.mockMode ? <Badge variant="warning">Mock data</Badge> : null}
@@ -207,9 +217,41 @@ export function TrackerDashboard() {
           </div>
         </header>
 
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="grid content-start gap-6">
-            <SearchForm loading={loading} onSearch={handleSearch} />
+        {savedPanelOpen ? (
+          <div className="fixed inset-0 z-50">
+            <button
+              type="button"
+              className="absolute inset-0 bg-slate-950/25"
+              aria-label="Dismiss saved searches overlay"
+              onClick={() => setSavedPanelOpen(false)}
+            />
+            <aside className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto border-l bg-background p-4 shadow-2xl">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-muted-foreground">Saved search history</p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSavedPanelOpen(false)}
+                  title="Close saved searches"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+              <SavedSearches
+                history={history}
+                loading={historyLoading}
+                loadingRunId={loadingRunId}
+                deletingRunId={deletingRunId}
+                onViewResults={handleViewSavedResults}
+                onDelete={handleDeleteSavedSearch}
+              />
+            </aside>
+          </div>
+        ) : null}
+
+        <div className="grid content-start gap-6">
+          <SearchForm loading={loading} onSearch={handleSearch} />
 
           <section className="grid content-start gap-4">
             <SummaryCards summary={response?.summary} />
@@ -280,18 +322,6 @@ export function TrackerDashboard() {
               <ResultsTable results={response.results} onExportCsv={() => downloadCsv(response)} />
             ) : null}
           </section>
-          </div>
-
-          <aside className="self-start">
-            <SavedSearches
-              history={history}
-              loading={historyLoading}
-              loadingRunId={loadingRunId}
-              deletingRunId={deletingRunId}
-              onViewResults={handleViewSavedResults}
-              onDelete={handleDeleteSavedSearch}
-            />
-          </aside>
         </div>
       </div>
     </main>
