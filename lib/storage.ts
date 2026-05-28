@@ -65,6 +65,23 @@ function omitApiKey(request: SearchRequest): Omit<SearchRequest, "localLushaApiK
   return safeRequest;
 }
 
+async function insertSearchRun(
+  config: { url: string; serviceRoleKey: string },
+  payload: Record<string, unknown>
+) {
+  return fetch(`${config.url}/rest/v1/search_runs`, {
+    method: "POST",
+    headers: {
+      apikey: config.serviceRoleKey,
+      Authorization: `Bearer ${config.serviceRoleKey}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store"
+  });
+}
+
 export async function storeWebhookEvent(event: StoredWebhookEvent) {
   // Vercel serverless memory is ephemeral. For production persistence, replace this
   // with Supabase/PostgreSQL using DATABASE_URL and store only the minimum B2B
@@ -123,25 +140,40 @@ export async function storeSearchRun(
     request: safeRequest,
     results: response.results
   };
+  const legacyPayload = {
+    company_domain: safeRequest.companyDomain || null,
+    company_name: safeRequest.companyName || null,
+    location: safeRequest.location || null,
+    duration_days: safeRequest.durationDays,
+    discipline: safeRequest.discipline,
+    match_type: response.summary.matchType,
+    mock_mode: response.summary.mockMode,
+    total_contacts_found: response.summary.totalContactsFound,
+    job_changes_found: response.summary.jobChangesFound,
+    high_priority_contacts: response.summary.highPriorityContacts,
+    credits_used: response.summary.creditsUsed ?? null,
+    api_calls_used: response.summary.apiCallsUsed,
+    signal_lookups_requested: response.summary.signalLookupsRequested,
+    warnings: response.warnings,
+    request: safeRequest,
+    results: response.results
+  };
 
   try {
-    const saveResponse = await fetch(`${config.url}/rest/v1/search_runs`, {
-      method: "POST",
-      headers: {
-        apikey: config.serviceRoleKey,
-        Authorization: `Bearer ${config.serviceRoleKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=representation"
-      },
-      body: JSON.stringify(payload),
-      cache: "no-store"
-    });
+    let saveResponse = await insertSearchRun(config, payload);
 
     if (!saveResponse.ok) {
-      return {
-        status: "failed",
-        message: "Supabase search-run save failed."
-      };
+      // Some existing deployments have an older search_runs table without newer
+      // optional columns. Retry with the original core schema so Champion Finder
+      // results still persist in request/results JSON.
+      saveResponse = await insertSearchRun(config, legacyPayload);
+
+      if (!saveResponse.ok) {
+        return {
+          status: "failed",
+          message: "Supabase search-run save failed. Check that the search_runs table has request and results JSON columns."
+        };
+      }
     }
 
     const rows = (await saveResponse.json()) as Array<{ id?: string }>;
