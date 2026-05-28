@@ -304,10 +304,21 @@ export interface SavedSearchRun {
   signalLookupsRequested: number;
 }
 
+export interface SavedSearchRunDetail extends SavedSearchRun {
+  warnings: string[];
+  request: Record<string, unknown>;
+  results: ContactJobChange[];
+}
+
 export interface SavedSearchRunsResponse {
   runs: SavedSearchRun[];
   storage: {
     status: "supabase" | "memory" | "disabled" | "failed";
     message?: string;
   };
+}
+
+export interface SavedSearchRunDetailResponse {
+  run?: SavedSearchRunDetail;
+  storage: SavedSearchRunsResponse["storage"];
 }
