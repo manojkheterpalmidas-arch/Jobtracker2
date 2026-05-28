@@ -68,6 +68,7 @@ export function TrackerDashboard() {
   const [history, setHistory] = useState<SavedSearchRunsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -119,6 +120,49 @@ export function TrackerDashboard() {
     }
   }
 
+  async function handleViewSavedResults(id: string) {
+    setLoadingRunId(id);
+    setError(null);
+
+    try {
+      const result = await fetch(`/api/search-runs?id=${encodeURIComponent(id)}`, {
+        method: "GET",
+        cache: "no-store"
+      });
+      const data = await result.json();
+
+      if (!result.ok || !data.run) {
+        throw new Error(data.storage?.message || "Saved search results could not be loaded.");
+      }
+
+      setResponse({
+        results: data.run.results,
+        summary: {
+          totalContactsFound: data.run.totalContactsFound,
+          jobChangesFound: data.run.jobChangesFound,
+          highPriorityContacts: data.run.highPriorityContacts,
+          matchType: "domain",
+          movementDirection: "joined",
+          creditsUsed: data.run.creditsUsed,
+          apiCallsUsed: data.run.apiCallsUsed,
+          signalLookupsRequested: data.run.signalLookupsRequested,
+          mockMode: data.run.mockMode,
+          lastCheckedAt: data.run.createdAt
+        },
+        warnings: data.run.warnings ?? [],
+        storage: {
+          status: data.storage?.status === "supabase" ? "saved" : data.storage?.status,
+          id: data.run.id,
+          message: "Loaded from saved search history."
+        }
+      });
+    } catch (savedError) {
+      setError(savedError instanceof Error ? savedError.message : "Saved search results could not be loaded.");
+    } finally {
+      setLoadingRunId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-6">
@@ -142,7 +186,12 @@ export function TrackerDashboard() {
 
         <div className="grid gap-6">
           <SearchForm loading={loading} onSearch={handleSearch} />
-          <SavedSearches history={history} loading={historyLoading} />
+          <SavedSearches
+            history={history}
+            loading={historyLoading}
+            loadingRunId={loadingRunId}
+            onViewResults={handleViewSavedResults}
+          />
 
           <section className="grid content-start gap-4">
             <SummaryCards summary={response?.summary} />
