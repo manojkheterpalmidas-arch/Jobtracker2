@@ -100,7 +100,7 @@ export function SavedSearches({
           <p className="text-sm text-muted-foreground">No saved searches match this filter.</p>
         ) : null}
 
-        <div className="grid max-h-[560px] gap-3 overflow-y-auto pr-1">
+        <div className="grid max-h-[calc(100vh-240px)] gap-3 overflow-y-auto pr-1">
           {filteredRuns.map((run) => (
             <div key={run.id} className="rounded-lg border bg-background p-3">
               <div className="flex items-start justify-between gap-3">
@@ -128,7 +128,7 @@ export function SavedSearches({
                 </div>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                {run.location || "Any location"} · {run.durationDays ?? "-"} days · {run.signalLookupsRequested} signal checks
+                {run.location || "Any location"} - {run.durationDays ?? "-"} days - {run.signalLookupsRequested} signal checks
               </p>
               <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                 <Button
