@@ -207,7 +207,7 @@ export function TrackerDashboard() {
           </div>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid content-start gap-6">
             <SearchForm loading={loading} onSearch={handleSearch} />
 
@@ -282,7 +282,7 @@ export function TrackerDashboard() {
           </section>
           </div>
 
-          <aside className="xl:sticky xl:top-6 xl:self-start">
+          <aside className="self-start">
             <SavedSearches
               history={history}
               loading={historyLoading}
