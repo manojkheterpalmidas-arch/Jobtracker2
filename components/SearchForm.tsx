@@ -24,6 +24,7 @@ import {
 type SearchFormProps = {
   loading: boolean;
   onSearch: (request: SearchRequest) => void;
+  mode?: "champion" | "tracker";
 };
 
 function parseKeywords(value: string) {
@@ -35,7 +36,7 @@ function parseKeywords(value: string) {
 
 const showManualApiKeyInput = true;
 
-export function SearchForm({ loading, onSearch }: SearchFormProps) {
+export function SearchForm({ loading, onSearch, mode = "tracker" }: SearchFormProps) {
   const [companyDomain, setCompanyDomain] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -43,6 +44,9 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
   const [discipline, setDiscipline] = useState<Discipline>("structural_bridge");
   const [maxSignalLookups, setMaxSignalLookups] = useState<SignalLookupLimit>(25);
   const [titleFilterMode, setTitleFilterMode] = useState<TitleFilterMode>("defaults_plus_custom");
+  const [boostMidasMentions, setBoostMidasMentions] = useState(true);
+  const [onlyKnownMidasAccounts, setOnlyKnownMidasAccounts] = useState(true);
+  const [showUnknownPreviousCompanies, setShowUnknownPreviousCompanies] = useState(false);
   const [customTitleKeywords, setCustomTitleKeywords] = useState("");
   const [localLushaApiKey, setLocalLushaApiKey] = useState("");
 
@@ -67,6 +71,9 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
       movementDirection: "joined",
       maxSignalLookups,
       titleFilterMode,
+      boostMidasMentions,
+      onlyKnownMidasAccounts,
+      showUnknownPreviousCompanies,
       customTitleKeywords: parseKeywords(customTitleKeywords),
       seniority: [],
       localLushaApiKey: showManualApiKeyInput ? localLushaApiKey : ""
@@ -161,9 +168,42 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
             </div>
           </div>
 
-          <div className="grid gap-5 border-t pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="grid gap-3">
-              <div className="grid gap-3 sm:grid-cols-[1fr_240px] sm:items-end">
+          {mode === "champion" ? (
+            <div className="grid gap-3 rounded-lg border bg-emerald-50/50 p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={onlyKnownMidasAccounts}
+                  onChange={(event) => setOnlyKnownMidasAccounts(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-primary"
+                />
+                <span>
+                  <span className="block font-medium">Only show people from known MIDAS accounts</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    Default on. Results are filtered to people whose previous company matches the MIDAS Account Database.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showUnknownPreviousCompanies}
+                  onChange={(event) => setShowUnknownPreviousCompanies(event.target.checked)}
+                  className="mt-1 h-4 w-4 accent-primary"
+                />
+                <span>
+                  <span className="block font-medium">Show unknown previous companies too</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                    Useful for audit checks, but it can add low-confidence rows to the table.
+                  </span>
+                </span>
+              </label>
+            </div>
+          ) : null}
+
+          <div className="grid items-start gap-5 border-t pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="grid gap-3 self-start">
+              <div className="grid gap-3 sm:grid-cols-[1fr_260px] sm:items-start">
                 <div>
                   <Label htmlFor="customTitleKeywords">Custom title keywords</Label>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -174,7 +214,7 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
                   id="titleFilterMode"
                   value={titleFilterMode}
                   onChange={(event) => setTitleFilterMode(event.target.value as TitleFilterMode)}
-                  className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:mt-0"
                 >
                   {titleFilterModeOptions.map((option) => (
                     <option key={option} value={option}>
@@ -188,11 +228,28 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
                 placeholder="One per line or comma separated"
                 value={customTitleKeywords}
                 onChange={(event) => setCustomTitleKeywords(event.target.value)}
-                className="min-h-20"
+                className="min-h-32"
               />
             </div>
 
             <aside className="grid gap-4">
+              <div className="grid gap-3 rounded-lg border bg-background p-4">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={boostMidasMentions}
+                    onChange={(event) => setBoostMidasMentions(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <span className="block font-medium">Boost MIDAS mentions</span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      Adds relevance points when Lusha profile fields mention MIDAS skills or tools.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
               <div className="grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <div>
                   <Label htmlFor="maxSignalLookups">Credit guard</Label>
@@ -244,7 +301,7 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
           <div className="flex justify-start border-t pt-5">
             <Button type="submit" disabled={loading} className="w-full sm:w-fit">
               <Search className="h-4 w-4" aria-hidden="true" />
-              {loading ? "Searching Lusha signals..." : "Find job changes"}
+              {loading ? "Searching Lusha signals..." : mode === "champion" ? "Find MIDAS champions" : "Find job changes"}
             </Button>
           </div>
         </form>

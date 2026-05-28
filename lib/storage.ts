@@ -1,5 +1,4 @@
 import type {
-  ContactJobChange,
   SavedSearchRun,
   SavedSearchRunDetail,
   SavedSearchRunDetailResponse,
@@ -22,7 +21,7 @@ type StoredSearchRun = {
   request: Omit<SearchRequest, "localLushaApiKey">;
   summary: SearchResponse["summary"];
   warnings: string[];
-  results: ContactJobChange[];
+  results: SearchResponse["results"];
 };
 
 declare global {
@@ -111,6 +110,7 @@ export async function storeSearchRun(
     discipline: safeRequest.discipline,
     title_filter_mode: safeRequest.titleFilterMode,
     max_signal_lookups: safeRequest.maxSignalLookups,
+    boost_midas_mentions: safeRequest.boostMidasMentions,
     match_type: response.summary.matchType,
     mock_mode: response.summary.mockMode,
     total_contacts_found: response.summary.totalContactsFound,
@@ -170,6 +170,7 @@ function mapStoredSearchRun(run: StoredSearchRun): SavedSearchRun {
     discipline: run.request.discipline,
     titleFilterMode: run.request.titleFilterMode,
     maxSignalLookups: run.request.maxSignalLookups,
+    boostMidasMentions: run.request.boostMidasMentions,
     mockMode: run.summary.mockMode,
     totalContactsFound: run.summary.totalContactsFound,
     jobChangesFound: run.summary.jobChangesFound,
@@ -200,6 +201,7 @@ function mapSupabaseSearchRun(row: Record<string, unknown>): SavedSearchRun {
     discipline: typeof row.discipline === "string" ? row.discipline : undefined,
     titleFilterMode: typeof row.title_filter_mode === "string" ? row.title_filter_mode : undefined,
     maxSignalLookups: typeof row.max_signal_lookups === "number" ? row.max_signal_lookups : undefined,
+    boostMidasMentions: typeof row.boost_midas_mentions === "boolean" ? row.boost_midas_mentions : undefined,
     mockMode: Boolean(row.mock_mode),
     totalContactsFound: Number(row.total_contacts_found ?? 0),
     jobChangesFound: Number(row.job_changes_found ?? 0),
@@ -219,7 +221,7 @@ function asRecord(value: unknown) {
 }
 
 function asResults(value: unknown) {
-  return Array.isArray(value) ? (value as ContactJobChange[]) : [];
+  return Array.isArray(value) ? (value as SearchResponse["results"]) : [];
 }
 
 function mapSupabaseSearchRunDetail(row: Record<string, unknown>): SavedSearchRunDetail {
@@ -255,6 +257,7 @@ export async function listSearchRuns(limit = 20): Promise<SavedSearchRunsRespons
       "discipline",
       "title_filter_mode",
       "max_signal_lookups",
+      "boost_midas_mentions",
       "mock_mode",
       "total_contacts_found",
       "job_changes_found",

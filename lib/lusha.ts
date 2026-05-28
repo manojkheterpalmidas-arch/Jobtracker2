@@ -246,6 +246,14 @@ function contactLocation(contact?: LushaContact) {
     .join(", ");
 }
 
+function contactSkills(contact?: LushaContact) {
+  return Array.isArray(contact?.skills) ? contact.skills.filter((skill) => typeof skill === "string") : [];
+}
+
+function contactProfileText(contact?: LushaContact) {
+  return [contact?.summary, contact?.description].filter(Boolean).join(" ");
+}
+
 function signalCompany(signal: LushaSignal, key: "previous" | "new") {
   if (key === "previous") {
     return signal.previousCompanyName || signal.previousCompany || "Unknown previous company";
@@ -301,7 +309,12 @@ function movementLabel(direction: MovementDirection) {
   return "people who left or joined the company";
 }
 
-function normalizeJobChange(contact: LushaContact | undefined, signal: LushaSignal, lastCheckedDate: string) {
+function normalizeJobChange(
+  contact: LushaContact | undefined,
+  signal: LushaSignal,
+  lastCheckedDate: string,
+  boostMidasMentions: boolean
+) {
   const newTitle = signal.newTitle || contactTitle(contact);
   const previousTitle = signal.previousTitle || contactTitle(contact);
   const linkedinUrl = contact?.socialLinks?.linkedin || contact?.linkedinUrl;
@@ -328,6 +341,8 @@ function normalizeJobChange(contact: LushaContact | undefined, signal: LushaSign
     newTitle,
     location: contactLocation(contact),
     linkedinUrl,
+    skills: contactSkills(contact),
+    profileText: contactProfileText(contact),
     signalDate,
     relevanceScore: 0,
     priorityLevel: "Monitor",
@@ -337,7 +352,7 @@ function normalizeJobChange(contact: LushaContact | undefined, signal: LushaSign
     lastCheckedDate
   };
 
-  const relevanceScore = scoreContactJobChange(base);
+  const relevanceScore = scoreContactJobChange({ ...base, boostMidasMentions });
   const priorityLevel = classifyPriority(relevanceScore, `${base.previousTitle} ${base.newTitle}`, base.signalDate);
 
   return {
@@ -399,7 +414,7 @@ function buildResponse(
   };
 }
 
-function mockSignals(lastCheckedDate: string): ContactJobChange[] {
+function mockSignals(lastCheckedDate: string, boostMidasMentions: boolean): ContactJobChange[] {
   const rows: Array<Omit<ContactJobChange, "relevanceScore" | "priorityLevel" | "suggestedSalesAction" | "suggestedMessage" | "source" | "lastCheckedDate">> = [
     {
       id: "mock-wsp-bridge",
@@ -413,6 +428,8 @@ function mockSignals(lastCheckedDate: string): ContactJobChange[] {
       newTitle: "Associate Bridge Engineer",
       location: "Manchester, United Kingdom",
       linkedinUrl: "https://www.linkedin.com/in/sarah-whitfield-bridge",
+      skills: ["MIDAS Civil", "Bridge assessment", "Eurocodes"],
+      profileText: "Bridge analysis and structural assessment using MIDAS Civil.",
       signalDate: getStartDate(21)
     },
     {
@@ -427,6 +444,8 @@ function mockSignals(lastCheckedDate: string): ContactJobChange[] {
       newTitle: "Technical Lead, Civil Structures",
       location: "London, United Kingdom",
       linkedinUrl: "https://www.linkedin.com/in/james-patel-structures",
+      skills: ["Structural analysis", "FEM"],
+      profileText: "Principal structural engineer with civil structures experience.",
       signalDate: getStartDate(47)
     },
     {
@@ -441,6 +460,8 @@ function mockSignals(lastCheckedDate: string): ContactJobChange[] {
       newTitle: "Director of Bridges",
       location: "Glasgow, United Kingdom",
       linkedinUrl: "https://www.linkedin.com/in/emma-macleod-bridges",
+      skills: ["MIDAS Civil NX", "Bridge design", "Design management"],
+      profileText: "Technical director for bridge teams using MIDAS and assessment workflows.",
       signalDate: getStartDate(82)
     },
     {
@@ -455,6 +476,8 @@ function mockSignals(lastCheckedDate: string): ContactJobChange[] {
       newTitle: "HR Marketing Lead",
       location: "Birmingham, United Kingdom",
       linkedinUrl: "https://www.linkedin.com/in/alex-morgan-hr",
+      skills: ["Recruitment marketing"],
+      profileText: "HR and recruitment marketing.",
       signalDate: getStartDate(12)
     }
   ];
@@ -470,7 +493,7 @@ function mockSignals(lastCheckedDate: string): ContactJobChange[] {
         source: "Lusha",
         lastCheckedDate
       };
-      const relevanceScore = scoreContactJobChange(base);
+      const relevanceScore = scoreContactJobChange({ ...base, boostMidasMentions });
       const priorityLevel = classifyPriority(relevanceScore, `${base.previousTitle} ${base.newTitle}`, base.signalDate);
 
       return {
@@ -486,7 +509,7 @@ function mockSignals(lastCheckedDate: string): ContactJobChange[] {
 
 function mockSearchResponse(params: SearchJobChangesOptions, startDate: string, warnings: string[]): SearchResponse {
   const lastCheckedDate = toIsoDate(new Date());
-  const results = mockSignals(lastCheckedDate).filter(
+  const results = mockSignals(lastCheckedDate, params.boostMidasMentions).filter(
     (record) => isOnOrAfter(record.signalDate, startDate) && movementMatches(record, params)
   );
 
@@ -548,7 +571,7 @@ export async function searchJobChanges(params: SearchJobChangesOptions): Promise
     for (const signal of item.companyChange ?? []) {
       if (!isOnOrAfter(signal.signalDate, startDate)) continue;
 
-      const record = normalizeJobChange(contact, signal, lastCheckedDate);
+      const record = normalizeJobChange(contact, signal, lastCheckedDate, params.boostMidasMentions);
       if (excludeIrrelevantTitles(`${record.previousTitle} ${record.newTitle}`)) continue;
       if (!movementMatches(record, params)) continue;
       records.push(record);

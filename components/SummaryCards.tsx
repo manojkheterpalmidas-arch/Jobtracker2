@@ -7,15 +7,26 @@ type SummaryCardsProps = {
 };
 
 export function SummaryCards({ summary }: SummaryCardsProps) {
-  const items = [
-    ["Total contacts found", summary?.totalContactsFound ?? 0],
-    ["Job changes found", summary?.jobChangesFound ?? 0],
-    ["High-priority contacts", summary?.highPriorityContacts ?? 0],
-    ["Credits/API calls", `${summary?.creditsUsed ?? 0} / ${summary?.apiCallsUsed ?? 0}`]
-  ];
+  const championMode = typeof summary?.knownMidasAccounts === "number";
+  const items = championMode
+    ? [
+        ["Total job changes found", summary?.jobChangesFound ?? 0],
+        ["Known MIDAS accounts", summary?.knownMidasAccounts ?? 0],
+        ["High-potential champions", summary?.highPotentialChampions ?? 0],
+        ["Medium-potential champions", summary?.mediumPotentialChampions ?? 0],
+        ["Unknown previous companies", summary?.unknownPreviousCompanies ?? 0],
+        ["MIDAS DB companies", summary?.midasDatabaseCompaniesCount ?? 0],
+        ["Credits/API calls", `${summary?.creditsUsed ?? 0} / ${summary?.apiCallsUsed ?? 0}`]
+      ]
+    : [
+        ["Total contacts found", summary?.totalContactsFound ?? 0],
+        ["Job changes found", summary?.jobChangesFound ?? 0],
+        ["High-priority contacts", summary?.highPriorityContacts ?? 0],
+        ["Credits/API calls", `${summary?.creditsUsed ?? 0} / ${summary?.apiCallsUsed ?? 0}`]
+      ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
       {items.map(([label, value]) => (
         <Card key={label}>
           <CardContent className="p-4">

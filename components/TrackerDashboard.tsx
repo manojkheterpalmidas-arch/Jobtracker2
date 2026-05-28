@@ -2,13 +2,21 @@
 
 import { AlertTriangle, Database, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ChampionResultsTable } from "@/components/ChampionResultsTable";
+import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
 import { SearchForm } from "@/components/SearchForm";
 import { ResultsTable } from "@/components/ResultsTable";
 import { SavedSearches } from "@/components/SavedSearches";
 import { SummaryCards } from "@/components/SummaryCards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { SavedSearchRunsResponse, SearchRequest, SearchResponse } from "@/lib/types";
+import type {
+  ChampionContactJobChange,
+  ContactJobChange,
+  SavedSearchRunsResponse,
+  SearchRequest,
+  SearchResponse
+} from "@/lib/types";
 
 function csvValue(value: unknown) {
   const stringValue = String(value ?? "");
@@ -16,7 +24,24 @@ function csvValue(value: unknown) {
 }
 
 function downloadCsv(response: SearchResponse) {
-  const headers = [
+  const championMode = response.results.some((record) => "championLikelihoodScore" in record);
+  const headers = championMode ? [
+    "Person name",
+    "New company",
+    "New title",
+    "Previous company",
+    "Previous domain",
+    "MIDAS matched company",
+    "MIDAS relationship status",
+    "Match confidence",
+    "Champion potential",
+    "Champion score",
+    "Champion reason",
+    "Suggested action",
+    "Suggested message",
+    "LinkedIn URL",
+    "Signal date"
+  ] : [
     "Person name",
     "Previous company",
     "Previous company domain",
@@ -35,24 +60,46 @@ function downloadCsv(response: SearchResponse) {
     "Last checked date"
   ];
 
-  const rows = response.results.map((record) => [
-    record.personName,
-    record.previousCompany,
-    record.previousCompanyDomain,
-    record.previousTitle,
-    record.newCompany,
-    record.newCompanyDomain,
-    record.newTitle,
-    record.location,
-    record.linkedinUrl,
-    record.signalDate,
-    record.relevanceScore,
-    record.priorityLevel,
-    record.suggestedSalesAction,
-    record.suggestedMessage,
-    record.source,
-    record.lastCheckedDate
-  ]);
+  const rows = response.results.map((record) => {
+    if ("championLikelihoodScore" in record) {
+      return [
+        record.personName,
+        record.newCompany,
+        record.newTitle,
+        record.previousCompany,
+        record.previousCompanyDomain,
+        record.midasMatchedCompanyName,
+        record.midasRelationshipStatus,
+        record.midasMatchConfidence,
+        record.championPotential,
+        record.championLikelihoodScore,
+        record.championReason,
+        record.suggestedSalesAction,
+        record.suggestedMessage,
+        record.linkedinUrl,
+        record.signalDate
+      ];
+    }
+
+    return [
+      record.personName,
+      record.previousCompany,
+      record.previousCompanyDomain,
+      record.previousTitle,
+      record.newCompany,
+      record.newCompanyDomain,
+      record.newTitle,
+      record.location,
+      record.linkedinUrl,
+      record.signalDate,
+      record.relevanceScore,
+      record.priorityLevel,
+      record.suggestedSalesAction,
+      record.suggestedMessage,
+      record.source,
+      record.lastCheckedDate
+    ];
+  });
 
   const csv = [headers, ...rows].map((row) => row.map(csvValue).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -64,6 +111,10 @@ function downloadCsv(response: SearchResponse) {
   URL.revokeObjectURL(url);
 }
 
+function isChampionRecord(record: SearchResponse["results"][number]): record is ChampionContactJobChange {
+  return "championLikelihoodScore" in record;
+}
+
 export function TrackerDashboard() {
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [history, setHistory] = useState<SavedSearchRunsResponse | null>(null);
@@ -72,6 +123,7 @@ export function TrackerDashboard() {
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"champion" | "tracker" | "accounts">("champion");
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -101,7 +153,7 @@ export function TrackerDashboard() {
     setError(null);
 
     try {
-      const result = await fetch("/api/search-job-changes", {
+      const result = await fetch(activeTab === "champion" ? "/api/search-champions" : "/api/search-job-changes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -196,10 +248,10 @@ export function TrackerDashboard() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
-                Engineer Job Change Tracker
+                MIDAS Champion Migration Finder
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Find structural, bridge, and civil structures contacts who recently joined target companies, then prioritize timely professional follow-up.
+                Find people who recently joined target companies from known MIDAS accounts, then prioritize likely MIDAS-aware champions for professional follow-up.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -251,7 +303,36 @@ export function TrackerDashboard() {
         ) : null}
 
         <div className="grid content-start gap-6">
-          <SearchForm loading={loading} onSearch={handleSearch} />
+          <nav className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={activeTab === "champion" ? "default" : "outline"}
+              onClick={() => setActiveTab("champion")}
+            >
+              Champion Finder
+            </Button>
+            <Button
+              type="button"
+              variant={activeTab === "tracker" ? "default" : "outline"}
+              onClick={() => setActiveTab("tracker")}
+            >
+              Job Change Tracker
+            </Button>
+            <Button
+              type="button"
+              variant={activeTab === "accounts" ? "default" : "ghost"}
+              onClick={() => setActiveTab("accounts")}
+              className="ml-auto"
+            >
+              Admin: MIDAS Account Database
+            </Button>
+          </nav>
+
+          {activeTab === "accounts" ? (
+            <MidasAccountDatabase />
+          ) : (
+            <>
+              <SearchForm loading={loading} onSearch={handleSearch} mode={activeTab === "champion" ? "champion" : "tracker"} />
 
           <section className="grid content-start gap-4">
             <SummaryCards summary={response?.summary} />
@@ -318,10 +399,22 @@ export function TrackerDashboard() {
               </div>
             ) : null}
 
-            {!loading && response ? (
-              <ResultsTable results={response.results} onExportCsv={() => downloadCsv(response)} />
+            {!loading && response && activeTab === "champion" ? (
+              <ChampionResultsTable
+                results={response.results.filter(isChampionRecord)}
+                onExportCsv={() => downloadCsv(response)}
+              />
+            ) : null}
+
+            {!loading && response && activeTab === "tracker" ? (
+              <ResultsTable
+                results={response.results.filter((record): record is ContactJobChange => !isChampionRecord(record))}
+                onExportCsv={() => downloadCsv(response)}
+              />
             ) : null}
           </section>
+            </>
+          )}
         </div>
       </div>
     </main>

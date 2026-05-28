@@ -177,6 +177,9 @@ export const SearchRequestSchema = z
       z.literal(100)
     ]).default(25),
     titleFilterMode: z.enum(titleFilterModeOptions).default("defaults_plus_custom"),
+    boostMidasMentions: z.boolean().default(true),
+    onlyKnownMidasAccounts: z.boolean().default(true),
+    showUnknownPreviousCompanies: z.boolean().default(false),
     customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(40).optional(),
     seniority: z.array(z.string().trim().max(80)).max(8).optional(),
     localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
@@ -216,6 +219,9 @@ export interface LushaContact {
     linkedin?: string;
   };
   linkedinUrl?: string;
+  skills?: string[];
+  summary?: string;
+  description?: string;
 }
 
 export interface LushaSignal {
@@ -252,6 +258,8 @@ export interface ContactJobChange {
   newTitle: string;
   location?: string;
   linkedinUrl?: string;
+  skills?: string[];
+  profileText?: string;
   signalDate: string;
   relevanceScore: number;
   priorityLevel: PriorityLevel;
@@ -259,6 +267,96 @@ export interface ContactJobChange {
   suggestedMessage: string;
   source: "Lusha";
   lastCheckedDate: string;
+}
+
+export const relationshipStatusOptions = [
+  "Client",
+  "Former Client",
+  "Prospect",
+  "Partner",
+  "Unknown"
+] as const;
+
+export type MidasRelationshipStatus = (typeof relationshipStatusOptions)[number];
+export type MidasMatchConfidence = "exact_domain" | "exact_name" | "fuzzy_name" | "none";
+export type ChampionPotential = "High" | "Medium" | "Low" | "Unknown";
+
+export const MidasAccountSchema = z.object({
+  id: z.string().uuid().optional(),
+  companyName: z.string().trim().min(1).max(160),
+  companyDomain: z.string().trim().max(253).optional().or(z.literal("")),
+  country: z.string().trim().min(1).max(120),
+  relationshipStatus: z.enum(relationshipStatusOptions),
+  notes: z.string().trim().max(1000).optional().or(z.literal("")),
+  createdBy: z.string().trim().max(120).optional().or(z.literal("")),
+  updatedBy: z.string().trim().max(120).optional().or(z.literal(""))
+});
+
+export type MidasAccountInput = z.infer<typeof MidasAccountSchema>;
+
+export interface MidasAccount {
+  id: string;
+  companyName: string;
+  companyDomain?: string;
+  country: string;
+  relationshipStatus: MidasRelationshipStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface MidasAccountStats {
+  total: number;
+  clients: number;
+  formerClients: number;
+  prospects: number;
+  partners: number;
+  countriesCovered: number;
+}
+
+export interface MidasAccountListResponse {
+  accounts: MidasAccount[];
+  stats: MidasAccountStats;
+  storage: {
+    status: "supabase" | "memory" | "disabled" | "failed";
+    message?: string;
+  };
+}
+
+export interface MidasImportRow extends MidasAccountInput {
+  rowNumber: number;
+  duplicate?: boolean;
+  duplicateOf?: string;
+  error?: string;
+}
+
+export interface MidasImportPreviewResponse {
+  rows: MidasImportRow[];
+  validRows: number;
+  duplicateRows: number;
+  errorRows: number;
+}
+
+export type MidasDuplicateStrategy = "skip_duplicates" | "update_duplicates" | "insert_new_only";
+
+export interface MidasCompanyMatch {
+  matched: boolean;
+  account?: MidasAccount;
+  confidence: MidasMatchConfidence;
+  normalizedPreviousCompany: string;
+}
+
+export interface ChampionContactJobChange extends ContactJobChange {
+  previousCompanyCountryFromDatabase?: string;
+  midasRelationshipStatus?: MidasRelationshipStatus;
+  midasAccountMatched: boolean;
+  midasMatchedCompanyName?: string;
+  midasMatchConfidence: MidasMatchConfidence;
+  championPotential: ChampionPotential;
+  championReason: string;
+  championLikelihoodScore: number;
 }
 
 export interface SearchSummary {
@@ -272,10 +370,15 @@ export interface SearchSummary {
   signalLookupsRequested: number;
   mockMode: boolean;
   lastCheckedAt: string;
+  knownMidasAccounts?: number;
+  highPotentialChampions?: number;
+  mediumPotentialChampions?: number;
+  unknownPreviousCompanies?: number;
+  midasDatabaseCompaniesCount?: number;
 }
 
 export interface SearchResponse {
-  results: ContactJobChange[];
+  results: Array<ContactJobChange | ChampionContactJobChange>;
   summary: SearchSummary;
   warnings: string[];
   storage?: {
@@ -295,6 +398,7 @@ export interface SavedSearchRun {
   discipline?: string;
   titleFilterMode?: string;
   maxSignalLookups?: number;
+  boostMidasMentions?: boolean;
   mockMode: boolean;
   totalContactsFound: number;
   jobChangesFound: number;
@@ -307,7 +411,7 @@ export interface SavedSearchRun {
 export interface SavedSearchRunDetail extends SavedSearchRun {
   warnings: string[];
   request: Record<string, unknown>;
-  results: ContactJobChange[];
+  results: Array<ContactJobChange | ChampionContactJobChange>;
 }
 
 export interface SavedSearchRunsResponse {

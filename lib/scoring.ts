@@ -14,8 +14,15 @@ function titleHas(title: string, pattern: RegExp) {
   return pattern.test(title);
 }
 
-export function scoreContactJobChange(record: Pick<ContactJobChange, "newTitle" | "previousTitle" | "newCompany" | "signalDate">) {
+export function scoreContactJobChange(
+  record: Pick<ContactJobChange, "newTitle" | "previousTitle" | "newCompany" | "signalDate"> & {
+    skills?: string[];
+    profileText?: string;
+    boostMidasMentions?: boolean;
+  }
+) {
   const combinedTitle = `${record.newTitle} ${record.previousTitle}`;
+  const combinedProfileText = `${combinedTitle} ${record.skills?.join(" ") ?? ""} ${record.profileText ?? ""}`;
   let score = 0;
 
   if (titleHas(combinedTitle, /\bbridge|bridges\b/i)) score += 5;
@@ -29,6 +36,7 @@ export function scoreContactJobChange(record: Pick<ContactJobChange, "newTitle" 
   if (titleHas(combinedTitle, /\btechnical director|director|head\b/i)) score += 4;
   if (titleHas(combinedTitle, /\btechnical manager|engineering manager|design manager|technical lead|engineering lead|design lead|team leader|structures lead|bridge lead\b/i)) score += 3;
   if (titleHas(combinedTitle, /\bsenior\b/i)) score += 2;
+  if (record.boostMidasMentions !== false && titleHas(combinedProfileText, /\bmidas\b|\bmidas civil\b|\bmidas civil nx\b|\bmidas gen\b|\bmidas fea\b/i)) score += 6;
   if (titleHas(record.newCompany, /\b(engineering|consult|infrastructure|design|partners|group|arup|ramboll|cowi|sweco|atkins|aecom)\b/i)) score += 2;
 
   const ageDays = daysSince(record.signalDate);
