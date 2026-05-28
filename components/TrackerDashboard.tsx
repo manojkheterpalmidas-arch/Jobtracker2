@@ -69,6 +69,7 @@ export function TrackerDashboard() {
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
+  const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -163,6 +164,28 @@ export function TrackerDashboard() {
     }
   }
 
+  async function handleDeleteSavedSearch(id: string) {
+    setDeletingRunId(id);
+    setError(null);
+
+    try {
+      const result = await fetch(`/api/search-runs?id=${encodeURIComponent(id)}`, {
+        method: "DELETE"
+      });
+      const data = await result.json();
+
+      if (!result.ok) {
+        throw new Error(data.storage?.message || "Saved search could not be deleted.");
+      }
+
+      void loadHistory();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Saved search could not be deleted.");
+    } finally {
+      setDeletingRunId(null);
+    }
+  }
+
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-6">
@@ -184,14 +207,9 @@ export function TrackerDashboard() {
           </div>
         </header>
 
-        <div className="grid gap-6">
-          <SearchForm loading={loading} onSearch={handleSearch} />
-          <SavedSearches
-            history={history}
-            loading={historyLoading}
-            loadingRunId={loadingRunId}
-            onViewResults={handleViewSavedResults}
-          />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid content-start gap-6">
+            <SearchForm loading={loading} onSearch={handleSearch} />
 
           <section className="grid content-start gap-4">
             <SummaryCards summary={response?.summary} />
@@ -262,6 +280,18 @@ export function TrackerDashboard() {
               <ResultsTable results={response.results} onExportCsv={() => downloadCsv(response)} />
             ) : null}
           </section>
+          </div>
+
+          <aside className="xl:sticky xl:top-6 xl:self-start">
+            <SavedSearches
+              history={history}
+              loading={historyLoading}
+              loadingRunId={loadingRunId}
+              deletingRunId={deletingRunId}
+              onViewResults={handleViewSavedResults}
+              onDelete={handleDeleteSavedSearch}
+            />
+          </aside>
         </div>
       </div>
     </main>
