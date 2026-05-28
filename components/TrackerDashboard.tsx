@@ -124,6 +124,7 @@ export function TrackerDashboard() {
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"champion" | "tracker" | "accounts">("champion");
+  const [loadedRequest, setLoadedRequest] = useState<Partial<SearchRequest> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -151,6 +152,7 @@ export function TrackerDashboard() {
   async function handleSearch(payload: SearchRequest) {
     setLoading(true);
     setError(null);
+    setLoadedRequest(payload);
 
     try {
       const result = await fetch(activeTab === "champion" ? "/api/search-champions" : "/api/search-job-changes", {
@@ -190,19 +192,44 @@ export function TrackerDashboard() {
         throw new Error(data.storage?.message || "Saved search results could not be loaded.");
       }
 
+      const savedResults = (data.run.results ?? []) as SearchResponse["results"];
+      const championResults = savedResults.filter(isChampionRecord);
+      const savedRequest = data.run.request as Partial<SearchRequest>;
+      const savedIsChampionSearch =
+        championResults.length > 0 ||
+        typeof savedRequest.onlyKnownMidasAccounts === "boolean" ||
+        typeof savedRequest.showUnknownPreviousCompanies === "boolean";
+
+      setLoadedRequest(savedRequest);
+      setActiveTab(savedIsChampionSearch ? "champion" : "tracker");
       setResponse({
         results: data.run.results,
         summary: {
           totalContactsFound: data.run.totalContactsFound,
-          jobChangesFound: data.run.jobChangesFound,
-          highPriorityContacts: data.run.highPriorityContacts,
+          jobChangesFound: savedResults.length || data.run.jobChangesFound,
+          highPriorityContacts: savedIsChampionSearch
+            ? championResults.filter((record) => record.championPotential === "High").length
+            : data.run.highPriorityContacts,
           matchType: "domain",
           movementDirection: "joined",
           creditsUsed: data.run.creditsUsed,
           apiCallsUsed: data.run.apiCallsUsed,
           signalLookupsRequested: data.run.signalLookupsRequested,
           mockMode: data.run.mockMode,
-          lastCheckedAt: data.run.createdAt
+          lastCheckedAt: data.run.createdAt,
+          knownMidasAccounts: savedIsChampionSearch
+            ? championResults.filter((record) => record.midasAccountMatched).length
+            : undefined,
+          highPotentialChampions: savedIsChampionSearch
+            ? championResults.filter((record) => record.championPotential === "High").length
+            : undefined,
+          mediumPotentialChampions: savedIsChampionSearch
+            ? championResults.filter((record) => record.championPotential === "Medium").length
+            : undefined,
+          unknownPreviousCompanies: savedIsChampionSearch
+            ? championResults.filter((record) => !record.midasAccountMatched).length
+            : undefined,
+          midasDatabaseCompaniesCount: undefined
         },
         warnings: data.run.warnings ?? [],
         storage: {
@@ -332,7 +359,12 @@ export function TrackerDashboard() {
             <MidasAccountDatabase />
           ) : (
             <>
-              <SearchForm loading={loading} onSearch={handleSearch} mode={activeTab === "champion" ? "champion" : "tracker"} />
+              <SearchForm
+                loading={loading}
+                onSearch={handleSearch}
+                mode={activeTab === "champion" ? "champion" : "tracker"}
+                initialRequest={loadedRequest}
+              />
 
           <section className="grid content-start gap-4">
             <SummaryCards summary={response?.summary} />

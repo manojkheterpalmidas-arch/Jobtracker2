@@ -25,6 +25,7 @@ type SearchFormProps = {
   loading: boolean;
   onSearch: (request: SearchRequest) => void;
   mode?: "champion" | "tracker";
+  initialRequest?: Partial<SearchRequest> | null;
 };
 
 function parseKeywords(value: string) {
@@ -36,7 +37,7 @@ function parseKeywords(value: string) {
 
 const showManualApiKeyInput = true;
 
-export function SearchForm({ loading, onSearch, mode = "tracker" }: SearchFormProps) {
+export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest }: SearchFormProps) {
   const [companyDomain, setCompanyDomain] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -55,6 +56,22 @@ export function SearchForm({ loading, onSearch, mode = "tracker" }: SearchFormPr
       setLocalLushaApiKey(window.sessionStorage.getItem("localLushaApiKey") ?? "");
     }
   }, []);
+
+  useEffect(() => {
+    if (!initialRequest) return;
+
+    setCompanyDomain(initialRequest.companyDomain ?? "");
+    setCompanyName(initialRequest.companyName ?? "");
+    setLocation(initialRequest.location ?? "");
+    setDurationDays(initialRequest.durationDays ?? 90);
+    setDiscipline(initialRequest.discipline ?? "structural_bridge");
+    setMaxSignalLookups(initialRequest.maxSignalLookups ?? 25);
+    setTitleFilterMode(initialRequest.titleFilterMode ?? "defaults_plus_custom");
+    setBoostMidasMentions(initialRequest.boostMidasMentions ?? true);
+    setOnlyKnownMidasAccounts(initialRequest.onlyKnownMidasAccounts ?? true);
+    setShowUnknownPreviousCompanies(initialRequest.showUnknownPreviousCompanies ?? false);
+    setCustomTitleKeywords((initialRequest.customTitleKeywords ?? []).join("\n"));
+  }, [initialRequest]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
