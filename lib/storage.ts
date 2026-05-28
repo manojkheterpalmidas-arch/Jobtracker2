@@ -82,6 +82,23 @@ async function insertSearchRun(
   });
 }
 
+async function supabaseErrorText(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return response.statusText || `HTTP ${response.status}`;
+  }
+
+  try {
+    const data = JSON.parse(text) as { message?: string; details?: string; hint?: string; code?: string };
+    return [data.message, data.details, data.hint, data.code ? `Code: ${data.code}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  } catch {
+    return text;
+  }
+}
+
 export async function storeWebhookEvent(event: StoredWebhookEvent) {
   // Vercel serverless memory is ephemeral. For production persistence, replace this
   // with Supabase/PostgreSQL using DATABASE_URL and store only the minimum B2B
@@ -161,17 +178,20 @@ export async function storeSearchRun(
 
   try {
     let saveResponse = await insertSearchRun(config, payload);
+    let saveError = "";
 
     if (!saveResponse.ok) {
+      saveError = await supabaseErrorText(saveResponse);
       // Some existing deployments have an older search_runs table without newer
       // optional columns. Retry with the original core schema so Champion Finder
       // results still persist in request/results JSON.
       saveResponse = await insertSearchRun(config, legacyPayload);
 
       if (!saveResponse.ok) {
+        const legacyError = await supabaseErrorText(saveResponse);
         return {
           status: "failed",
-          message: "Supabase search-run save failed. Check that the search_runs table has request and results JSON columns."
+          message: `Supabase search-run save failed. Full payload error: ${saveError}. Legacy payload error: ${legacyError}.`
         };
       }
     }

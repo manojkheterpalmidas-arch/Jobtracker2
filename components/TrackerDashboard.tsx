@@ -417,7 +417,7 @@ export function TrackerDashboard() {
             {response?.storage?.status === "failed" ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <p className="font-semibold">Search completed, but was not saved</p>
-                <p>Check `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and the `search_runs` table.</p>
+                <p>{response.storage.message || "Check Supabase environment variables and the search_runs table."}</p>
               </div>
             ) : null}
 
