@@ -162,7 +162,7 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
               >
                 {durationOptions.map((days) => (
                   <option key={days} value={days}>
-                    {days === 365 ? "1 year" : `${days} days`}
+                    {days === 365 ? "1 year" : days === 730 ? "2 years" : `${days} days`}
                   </option>
                 ))}
               </select>

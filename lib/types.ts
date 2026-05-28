@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const durationOptions = [30, 60, 90, 180, 365] as const;
+export const durationOptions = [30, 60, 90, 180, 365, 730] as const;
 
 export const disciplineOptions = [
   "structural_bridge",
@@ -166,7 +166,8 @@ export const SearchRequestSchema = z
       z.literal(60),
       z.literal(90),
       z.literal(180),
-      z.literal(365)
+      z.literal(365),
+      z.literal(730)
     ]),
     discipline: z.enum(disciplineOptions),
     movementDirection: z.enum(movementDirectionOptions).default("joined"),
