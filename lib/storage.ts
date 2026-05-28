@@ -363,3 +363,53 @@ export async function getSearchRun(id: string): Promise<SavedSearchRunDetailResp
     };
   }
 }
+
+export async function deleteSearchRun(id: string): Promise<SavedSearchRunsResponse["storage"]> {
+  const config = supabaseConfig();
+
+  if (!config) {
+    const store = getSearchRunStore();
+    const index = store.findIndex((item) => item.id === id);
+
+    if (index >= 0) {
+      store.splice(index, 1);
+    }
+
+    return {
+      status: "memory",
+      message: "Deleted from in-memory search history."
+    };
+  }
+
+  const params = new URLSearchParams({
+    id: `eq.${id}`
+  });
+
+  try {
+    const response = await fetch(`${config.url}/rest/v1/search_runs?${params.toString()}`, {
+      method: "DELETE",
+      headers: {
+        apikey: config.serviceRoleKey,
+        Authorization: `Bearer ${config.serviceRoleKey}`
+      },
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      return {
+        status: "failed",
+        message: "Could not delete saved search from Supabase."
+      };
+    }
+
+    return {
+      status: "supabase",
+      message: "Saved search deleted."
+    };
+  } catch {
+    return {
+      status: "failed",
+      message: "Could not delete saved search from Supabase."
+    };
+  }
+}
