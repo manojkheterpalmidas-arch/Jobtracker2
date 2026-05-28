@@ -247,25 +247,9 @@ export async function listSearchRuns(limit = 20): Promise<SavedSearchRunsRespons
   }
 
   const params = new URLSearchParams({
-    select: [
-      "id",
-      "created_at",
-      "company_domain",
-      "company_name",
-      "location",
-      "duration_days",
-      "discipline",
-      "title_filter_mode",
-      "max_signal_lookups",
-      "boost_midas_mentions",
-      "mock_mode",
-      "total_contacts_found",
-      "job_changes_found",
-      "high_priority_contacts",
-      "credits_used",
-      "api_calls_used",
-      "signal_lookups_requested"
-    ].join(","),
+    // Select all columns so older search_runs tables keep working if they do
+    // not yet have newer optional fields such as boost_midas_mentions.
+    select: "*",
     order: "created_at.desc",
     limit: String(limit)
   });
