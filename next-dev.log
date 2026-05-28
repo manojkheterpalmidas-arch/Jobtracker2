@@ -1,0 +1,36 @@
+
+> engineer-job-change-tracker@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+   ▲ Next.js 15.5.18
+   - Local:        http://127.0.0.1:3000
+   - Network:      http://127.0.0.1:3000
+
+ ✓ Starting...
+ ✓ Ready in 1753ms
+ ○ Compiling / ...
+ ✓ Compiled / in 7.7s (627 modules)
+ GET / 200 in 8525ms
+ ✓ Compiled in 706ms (627 modules)
+ GET / 200 in 263ms
+ GET / 200 in 312ms
+ ✓ Compiled in 742ms (627 modules)
+ GET / 200 in 253ms
+ ✓ Compiled in 360ms (627 modules)
+ GET / 200 in 141ms
+ ✓ Compiled in 92ms (272 modules)
+ GET / 200 in 30ms
+ ✓ Compiled in 429ms (627 modules)
+ GET / 200 in 108ms
+ ✓ Compiled in 143ms (272 modules)
+ GET / 200 in 46ms
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1839ms (960 modules)
+ GET / 200 in 1075ms
+ GET / 200 in 24ms
+ GET / 500 in 4851ms
+ ✓ Compiled in 776ms (974 modules)
+ GET / 200 in 12ms
+ GET / 200 in 59ms
+ ✓ Compiled in 613ms (980 modules)
+ ✓ Compiled in 225ms (980 modules)
