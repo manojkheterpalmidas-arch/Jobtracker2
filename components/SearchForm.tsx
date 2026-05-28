@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { KeyRound, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  defaultTitleKeywords,
   disciplineLabels,
   disciplineOptions,
   durationOptions,
@@ -52,17 +51,6 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
       setLocalLushaApiKey(window.sessionStorage.getItem("localLushaApiKey") ?? "");
     }
   }, []);
-
-  const previewKeywords = useMemo(() => {
-    const custom = parseKeywords(customTitleKeywords);
-    const keywords =
-      titleFilterMode === "custom_only" && custom.length
-        ? custom
-        : titleFilterMode === "defaults_plus_custom"
-          ? [...defaultTitleKeywords[discipline], ...custom]
-          : defaultTitleKeywords[discipline];
-    return keywords.slice(0, 8);
-  }, [customTitleKeywords, discipline, titleFilterMode]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -202,13 +190,6 @@ export function SearchForm({ loading, onSearch }: SearchFormProps) {
                 onChange={(event) => setCustomTitleKeywords(event.target.value)}
                 className="min-h-20"
               />
-              <div className="flex max-h-20 flex-wrap gap-2 overflow-hidden">
-                {previewKeywords.map((keyword) => (
-                  <span key={keyword} className="rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
-                    {keyword}
-                  </span>
-                ))}
-              </div>
             </div>
 
             <aside className="grid gap-4">
