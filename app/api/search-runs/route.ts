@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSearchRun, listSearchRuns } from "@/lib/storage";
+import { deleteSearchRun, getSearchRun, listSearchRuns } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,4 +17,17 @@ export async function GET(request: Request) {
   const response = await listSearchRuns(Number.isFinite(limit) ? limit : 20);
 
   return NextResponse.json(response);
+}
+
+export async function DELETE(request: Request) {
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ error: "Missing saved search id." }, { status: 400 });
+  }
+
+  const storage = await deleteSearchRun(id);
+
+  return NextResponse.json({ storage }, { status: storage.status === "failed" ? 500 : 200 });
 }
