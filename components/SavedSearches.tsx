@@ -107,7 +107,7 @@ export function SavedSearches({
                 <div>
                   <p className="font-semibold">{run.companyName || run.companyDomain || "Unnamed company"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {run.searchType === "profile_midas_mentions" ? "Profile MIDAS Mentions" : run.searchType === "champion_finder" ? "Champion Finder" : "Job Change Tracker"}
+                    {run.searchType === "profile_midas_mentions" ? "Decision Makers" : run.searchType === "champion_finder" ? "Champion Finder" : "Job Change Tracker"}
                     {" - "}
                     {run.companyDomain || "Name search"}
                   </p>
@@ -123,7 +123,7 @@ export function SavedSearches({
                   <p className="text-sm font-semibold">{run.totalContactsFound}</p>
                 </div>
                 <div className="rounded-md bg-muted p-2">
-                  <p className="text-muted-foreground">Changes</p>
+                  <p className="text-muted-foreground">{run.searchType === "profile_midas_mentions" ? "Decision makers" : "Changes"}</p>
                   <p className="text-sm font-semibold">{run.jobChangesFound}</p>
                 </div>
                 <div className="rounded-md bg-muted p-2">
@@ -132,7 +132,7 @@ export function SavedSearches({
                 </div>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                {run.location || "Any location"} - {run.durationDays ?? "-"} days - {run.signalLookupsRequested} signal checks
+                {run.location || "Any location"} - {run.searchType === "profile_midas_mentions" ? `${run.signalLookupsRequested} contacts checked` : `${run.durationDays ?? "-"} days - ${run.signalLookupsRequested} signal checks`}
               </p>
               <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
                 <Button

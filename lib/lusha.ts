@@ -1,8 +1,6 @@
 import { getStartDate, isOnOrAfter, toIsoDate } from "@/lib/date";
 import { normalizeDomain } from "@/lib/domain";
 import { generateSuggestedMessage } from "@/lib/messageTemplates";
-import { selectedMidasKeywords } from "@/lib/midasKeywords";
-import { detectMidasMentions } from "@/lib/midasMentionDetection";
 import { buildProfileMidasMentionResult } from "@/lib/profileMidasMentionScoring";
 import {
   classifyPriority,
@@ -716,30 +714,28 @@ function mockProfileMentionContacts(targetCompany: string, targetDomain?: string
     {
       id: "mock-profile-1",
       fullName: "Aisha Rahman",
-      title: "Senior Structural Engineer",
+      title: "Technical Director Structures",
       company: { name: targetCompany, domain: targetDomain },
       location: { city: "London", country: "United Kingdom" },
       linkedinUrl: "https://www.linkedin.com/in/aisha-rahman-structures",
-      skills: ["MIDAS Civil", "Eurocodes", "Structural analysis"],
-      summary: "Senior structural engineer using MIDAS Civil for bridge and building structures."
+      summary: "Technical director for structural and bridge engineering teams."
     },
     {
       id: "mock-profile-2",
       fullName: "Daniel Kovacs",
-      title: "Geotechnical Engineer",
+      title: "Principal Geotechnical Engineer",
       company: { name: targetCompany, domain: targetDomain },
       location: { city: "Budapest", country: "Hungary" },
       linkedinUrl: "https://www.linkedin.com/in/daniel-kovacs-geotechnical",
-      experiences: [{ description: "Ground engineering modelling experience with GTS NX." }]
+      experiences: [{ description: "Ground engineering and tunnel design leadership." }]
     },
     {
       id: "mock-profile-3",
       fullName: "Priya Shah",
-      title: "Principal Engineer",
+      title: "Associate Director Bridges",
       company: { name: targetCompany, domain: targetDomain },
       location: { city: "Manchester", country: "United Kingdom" },
-      linkedinUrl: "https://www.linkedin.com/in/priya-shah-civil",
-      certifications: [{ name: "Civil NX advanced user course" }]
+      linkedinUrl: "https://www.linkedin.com/in/priya-shah-civil"
     },
     {
       id: "mock-profile-4",
@@ -770,10 +766,10 @@ function summarizeProfileMentionResults(
 ): ProfileMidasMentionResponse["summary"] {
   return {
     contactsChecked: results.length,
-    mentionsFound: results.filter((result) => result.hasMidasMention).length,
-    highConfidence: results.filter((result) => result.confidence === "high" && result.hasMidasMention).length,
-    mediumConfidence: results.filter((result) => result.confidence === "medium" && result.hasMidasMention).length,
-    lowConfidence: results.filter((result) => result.confidence === "low" && result.hasMidasMention).length,
+    decisionMakersFound: results.filter((result) => result.championFit !== "low").length,
+    highConfidence: results.filter((result) => result.championFit === "high").length,
+    mediumConfidence: results.filter((result) => result.championFit === "medium").length,
+    lowConfidence: results.filter((result) => result.championFit === "low").length,
     apiCallsUsed,
     creditsUsed,
     mockMode
@@ -784,9 +780,8 @@ export async function findProfileMidasMentions(
   params: ProfileMidasMentionOptions
 ): Promise<ProfileMidasMentionResponse> {
   const warnings = [
-    "Checking profile mentions may require enrichment and can consume more Lusha credits."
+    "Decision-maker search uses Lusha prospecting and can consume credits based on the selected contact limit."
   ];
-  const keywords = selectedMidasKeywords(params.keywordMode, params.customMidasKeywords);
   const checkedAt = new Date().toISOString();
 
   if (!apiKey(params.localLushaApiKey)) {
@@ -794,7 +789,8 @@ export async function findProfileMidasMentions(
     const contacts = mockProfileMentionContacts(targetCompany, params.normalizedDomain).slice(0, params.maxContactsToCheck);
     const results = contacts
       .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
-      .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt));
+      .map((contact) => buildProfileMidasMentionResult(contact, checkedAt))
+      .sort((a, b) => b.decisionMakerScore - a.decisionMakerScore);
 
     return {
       results,
@@ -832,16 +828,12 @@ export async function findProfileMidasMentions(
 
   const results = enrichedContacts
     .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
-    .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt))
-    .sort((a, b) => b.midasMentionScore - a.midasMentionScore);
+    .map((contact) => buildProfileMidasMentionResult(contact, checkedAt))
+    .sort((a, b) => b.decisionMakerScore - a.decisionMakerScore);
 
-  if (!results.some((result) => result.hasMidasMention)) {
-    warnings.push("No direct MIDAS mentions were found in the available returned/enriched Lusha profile fields.");
+  if (!results.length) {
+    warnings.push("No decision-maker contacts were found for the selected company and filters.");
   }
-
-  warnings.push(
-    "Lusha may not expose LinkedIn Skills or Sales Navigator profile evidence for every contact. MIDAS detection is limited to fields returned by the Lusha API."
-  );
 
   return {
     results,

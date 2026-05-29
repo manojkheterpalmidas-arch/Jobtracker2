@@ -119,7 +119,7 @@ function isChampionRecord(record: SearchResponse["results"][number]): record is 
 }
 
 function isProfileMentionRecord(record: unknown): record is ProfileMidasMentionResult {
-  return Boolean(record && typeof record === "object" && "midasMentionScore" in record);
+  return Boolean(record && typeof record === "object" && ("decisionMakerScore" in record || "midasMentionScore" in record));
 }
 
 export function TrackerDashboard() {
@@ -220,10 +220,10 @@ export function TrackerDashboard() {
           results: profileResults,
           summary: {
             contactsChecked: data.run.totalContactsFound,
-            mentionsFound: data.run.jobChangesFound,
+            decisionMakersFound: data.run.jobChangesFound,
             highConfidence: data.run.highPriorityContacts,
-            mediumConfidence: profileResults.filter((record) => record.confidence === "medium" && record.hasMidasMention).length,
-            lowConfidence: profileResults.filter((record) => record.confidence === "low" && record.hasMidasMention).length,
+            mediumConfidence: profileResults.filter((record) => record.championFit === "medium").length,
+            lowConfidence: profileResults.filter((record) => record.championFit === "low").length,
             apiCallsUsed: data.run.apiCallsUsed,
             creditsUsed: data.run.creditsUsed,
             mockMode: data.run.mockMode
@@ -381,7 +381,7 @@ export function TrackerDashboard() {
               variant={activeTab === "profile" ? "default" : "outline"}
               onClick={() => setActiveTab("profile")}
             >
-              Profile MIDAS Mentions
+              Decision Makers
             </Button>
             <Button
               type="button"

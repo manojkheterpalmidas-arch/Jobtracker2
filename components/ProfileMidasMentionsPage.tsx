@@ -2,13 +2,10 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { AlertTriangle, KeyRound, Search } from "lucide-react";
-import { defaultMidasKeywords } from "@/lib/midasKeywords";
 import {
-  midasKeywordModeOptions,
   profileMentionContactLimitOptions,
   profileMentionDisciplineLabels,
   profileMentionDisciplineOptions,
-  type MidasKeywordMode,
   type ProfileMentionContactLimit,
   type ProfileMentionDiscipline,
   type ProfileMidasMentionRequest,
@@ -43,11 +40,9 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
   const [discipline, setDiscipline] = useState<ProfileMentionDiscipline>("structural_bridge");
-  const [seniority, setSeniority] = useState<string[]>([]);
+  const [seniority, setSeniority] = useState<string[]>(["Principal", "Associate", "Director", "Technical Director", "Head"]);
   const [maxContactsToCheck, setMaxContactsToCheck] = useState<ProfileMentionContactLimit>(25);
-  const [keywordMode, setKeywordMode] = useState<MidasKeywordMode>("default");
   const [customTitleKeywords, setCustomTitleKeywords] = useState("");
-  const [customMidasKeywords, setCustomMidasKeywords] = useState("");
   const [localLushaApiKey, setLocalLushaApiKey] = useState("");
   const [response, setResponse] = useState<ProfileMidasMentionResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,8 +78,6 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       customTitleKeywords: parseKeywords(customTitleKeywords),
       seniority,
       maxContactsToCheck,
-      keywordMode,
-      customMidasKeywords: parseKeywords(customMidasKeywords),
       localLushaApiKey
     };
 
@@ -96,11 +89,11 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       });
       const data = await result.json();
 
-      if (!result.ok) throw new Error(data.error || "Profile MIDAS mention search failed.");
+      if (!result.ok) throw new Error(data.error || "Decision-maker search failed.");
 
       setResponse(data);
     } catch (searchError) {
-      setError(searchError instanceof Error ? searchError.message : "Profile MIDAS mention search failed.");
+      setError(searchError instanceof Error ? searchError.message : "Decision-maker search failed.");
       setResponse(null);
     } finally {
       setLoading(false);
@@ -117,12 +110,10 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       "currentTitle",
       "location",
       "linkedinUrl",
-      "hasMidasMention",
-      "matchedKeywords",
-      "evidenceFields",
-      "evidenceSnippets",
-      "midasMentionScore",
-      "confidence",
+      "decisionMakerScore",
+      "championFit",
+      "senioritySignals",
+      "roleSignals",
       "suggestedAction",
       "suggestedMessage",
       "checkedAt"
@@ -135,12 +126,10 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       record.currentTitle,
       record.location,
       record.linkedinUrl,
-      record.hasMidasMention,
-      record.matchedKeywords.join("; "),
-      record.evidenceFields.join("; "),
-      record.evidenceSnippets.join("; "),
-      record.midasMentionScore,
-      record.confidence,
+      record.decisionMakerScore,
+      record.championFit,
+      record.senioritySignals.join("; "),
+      record.roleSignals.join("; "),
       record.suggestedAction,
       record.suggestedMessage,
       record.checkedAt
@@ -150,7 +139,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `profile-midas-mentions-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `decision-makers-${new Date().toISOString().slice(0, 10)}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -159,15 +148,15 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
     <div className="grid gap-5">
       <Card>
         <CardHeader>
-          <CardTitle>Profile MIDAS Mentions</CardTitle>
+          <CardTitle>Decision Maker Finder</CardTitle>
           <CardDescription>
-            Find current target-company contacts whose available Lusha profile fields directly mention MIDAS products or MIDAS skills.
+            Find senior engineering contacts at the target company who could influence or champion engineering software decisions.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-5" onSubmit={handleSubmit}>
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              Checking profile mentions may require enrichment and can consume more Lusha credits. LinkedIn Skills are not always returned by Lusha.
+              This searches current contacts at the target company and ranks likely decision makers by seniority and engineering role. Keep the contact limit low while testing live Lusha searches.
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
@@ -218,30 +207,15 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="profileTitleKeywords">Custom title keywords</Label>
+                  <Label htmlFor="profileTitleKeywords">Additional title keywords</Label>
                   <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => setCustomTitleKeywords(event.target.value)} placeholder="One per line or comma separated" className="min-h-24" />
                   <p className="text-xs text-muted-foreground">
-                    For small companies, add titles like Managing Director, Founder, Owner, or Partner if needed.
+                    Add titles like Managing Director, Founder, Owner, Partner, Discipline Lead, or Regional Director if needed.
                   </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="profileMidasKeywords">Custom MIDAS keywords</Label>
-                  <Textarea id="profileMidasKeywords" value={customMidasKeywords} onChange={(event) => setCustomMidasKeywords(event.target.value)} placeholder="One per line or comma separated" className="min-h-24" />
                 </div>
               </div>
 
               <aside className="grid content-start gap-4">
-                <div className="grid gap-2 rounded-lg border bg-background p-4">
-                  <Label htmlFor="keywordMode">MIDAS keyword set</Label>
-                  <select id="keywordMode" value={keywordMode} onChange={(event) => setKeywordMode(event.target.value as MidasKeywordMode)} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    {midasKeywordModeOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option === "default" ? "Default MIDAS keywords" : option === "custom" ? "Custom keywords" : "Default + custom keywords"}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-muted-foreground">{defaultMidasKeywords.length} direct MIDAS keywords in the default set.</p>
-                </div>
                 <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
                   <div className="flex items-center gap-2">
                     <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -255,7 +229,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
             <div className="flex justify-start border-t pt-5">
               <Button type="submit" disabled={loading} className="w-full sm:w-fit">
                 <Search className="h-4 w-4" aria-hidden="true" />
-                {loading ? "Checking profile mentions..." : "Detect MIDAS mentions"}
+                {loading ? "Finding decision makers..." : "Find decision makers"}
               </Button>
             </div>
           </form>
@@ -265,9 +239,9 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
           ["Contacts checked", response?.summary.contactsChecked ?? 0],
-          ["MIDAS mentions found", response?.summary.mentionsFound ?? 0],
-          ["High-confidence contacts", response?.summary.highConfidence ?? 0],
-          ["Medium-confidence contacts", response?.summary.mediumConfidence ?? 0],
+          ["Decision makers found", response?.summary.decisionMakersFound ?? 0],
+          ["High-fit contacts", response?.summary.highConfidence ?? 0],
+          ["Medium-fit contacts", response?.summary.mediumConfidence ?? 0],
           ["Credits/API calls", `${response?.summary.creditsUsed ?? 0} / ${response?.summary.apiCallsUsed ?? 0}`]
         ].map(([label, value]) => (
           <Card key={label}>
@@ -284,7 +258,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4" aria-hidden="true" />
             <div>
-              <p className="font-semibold">Profile mention search error</p>
+              <p className="font-semibold">Decision-maker search error</p>
               <p>{error}</p>
             </div>
           </div>
@@ -303,7 +277,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       {response?.storage?.status === "saved" ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           <p className="font-semibold">Saved to Supabase</p>
-          <p>{response.storage.id ? `Search run ID: ${response.storage.id}` : "Profile mention run saved."}</p>
+          <p>{response.storage.id ? `Search run ID: ${response.storage.id}` : "Decision-maker search saved."}</p>
         </div>
       ) : null}
 

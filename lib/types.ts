@@ -473,8 +473,6 @@ export const ProfileMidasMentionRequestSchema = z
       z.literal(100),
       z.literal(200)
     ]),
-    keywordMode: z.enum(midasKeywordModeOptions),
-    customMidasKeywords: z.array(z.string().trim().min(1).max(80)).max(40).optional(),
     localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
   })
   .refine((value) => Boolean(value.companyDomain || value.companyName), {
@@ -484,6 +482,7 @@ export const ProfileMidasMentionRequestSchema = z
 
 export type ProfileMidasMentionRequest = z.infer<typeof ProfileMidasMentionRequestSchema>;
 export type MidasMentionConfidence = "high" | "medium" | "low";
+export type DecisionMakerFit = "high" | "medium" | "low";
 
 export interface MidasMentionDetection {
   hasMidasMention: boolean;
@@ -493,7 +492,7 @@ export interface MidasMentionDetection {
   confidence: MidasMentionConfidence;
 }
 
-export interface ProfileMidasMentionResult extends MidasMentionDetection {
+export interface ProfileMidasMentionResult {
   id: string;
   lushaContactId?: string;
   personName: string;
@@ -502,7 +501,10 @@ export interface ProfileMidasMentionResult extends MidasMentionDetection {
   currentTitle: string;
   location?: string;
   linkedinUrl?: string;
-  midasMentionScore: number;
+  decisionMakerScore: number;
+  championFit: DecisionMakerFit;
+  senioritySignals: string[];
+  roleSignals: string[];
   suggestedAction: string;
   suggestedMessage: string;
   checkedAt: string;
@@ -513,7 +515,7 @@ export interface ProfileMidasMentionResponse {
   results: ProfileMidasMentionResult[];
   summary: {
     contactsChecked: number;
-    mentionsFound: number;
+    decisionMakersFound: number;
     highConfidence: number;
     mediumConfidence: number;
     lowConfidence: number;

@@ -5,25 +5,25 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { MidasMentionConfidence, ProfileMidasMentionResult } from "@/lib/types";
+import type { DecisionMakerFit, ProfileMidasMentionResult } from "@/lib/types";
 
 type ProfileMidasMentionsTableProps = {
   results: ProfileMidasMentionResult[];
   onExportCsv: () => void;
 };
 
-function confidenceVariant(confidence: MidasMentionConfidence) {
-  if (confidence === "high") return "success";
-  if (confidence === "medium") return "warning";
+function fitVariant(fit: DecisionMakerFit) {
+  if (fit === "high") return "success";
+  if (fit === "medium") return "warning";
   return "muted";
 }
 
 export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidasMentionsTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showOnlyMentions, setShowOnlyMentions] = useState(true);
-  const [confidence, setConfidence] = useState("");
+  const [showOnlyDecisionMakers, setShowOnlyDecisionMakers] = useState(true);
+  const [fit, setFit] = useState("");
   const [titleKeyword, setTitleKeyword] = useState("");
-  const [matchedKeyword, setMatchedKeyword] = useState("");
+  const [roleKeyword, setRoleKeyword] = useState("");
 
   async function copyMessage(record: ProfileMidasMentionResult) {
     await navigator.clipboard.writeText(record.suggestedMessage);
@@ -33,20 +33,20 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
 
   const filteredResults = useMemo(() => {
     return results.filter((record) => {
-      if (showOnlyMentions && !record.hasMidasMention) return false;
-      if (confidence && record.confidence !== confidence) return false;
+      if (showOnlyDecisionMakers && record.championFit === "low") return false;
+      if (fit && record.championFit !== fit) return false;
       if (titleKeyword && !record.currentTitle.toLowerCase().includes(titleKeyword.toLowerCase())) return false;
-      if (matchedKeyword && !record.matchedKeywords.join(" ").toLowerCase().includes(matchedKeyword.toLowerCase())) return false;
+      if (roleKeyword && !record.roleSignals.join(" ").toLowerCase().includes(roleKeyword.toLowerCase())) return false;
       return true;
     });
-  }, [confidence, matchedKeyword, results, showOnlyMentions, titleKeyword]);
+  }, [fit, results, roleKeyword, showOnlyDecisionMakers, titleKeyword]);
 
   if (!results.length) {
     return (
       <div className="rounded-lg border bg-card p-10 text-center shadow-subtle">
         <p className="text-base font-semibold">No contacts checked yet</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Search a target company to scan available profile fields for direct MIDAS mentions.
+          Search a target company to find senior engineers and likely technical decision makers.
         </p>
       </div>
     );
@@ -57,8 +57,8 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
       <div className="grid gap-3 border-b p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold">Profile MIDAS mention results</h2>
-            <p className="text-sm text-muted-foreground">Direct MIDAS evidence from available Lusha profile fields.</p>
+            <h2 className="text-base font-semibold">Decision maker results</h2>
+            <p className="text-sm text-muted-foreground">Senior engineers and technical leaders ranked by role fit.</p>
           </div>
           <Button type="button" variant="outline" onClick={onExportCsv}>
             <Download className="h-4 w-4" aria-hidden="true" />
@@ -69,29 +69,29 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
           <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
             <input
               type="checkbox"
-              checked={showOnlyMentions}
-              onChange={(event) => setShowOnlyMentions(event.target.checked)}
+              checked={showOnlyDecisionMakers}
+              onChange={(event) => setShowOnlyDecisionMakers(event.target.checked)}
               className="h-4 w-4 accent-primary"
             />
-            Show only MIDAS mentions
+            Show only medium/high fit
           </label>
           <select
-            value={confidence}
-            onChange={(event) => setConfidence(event.target.value)}
+            value={fit}
+            onChange={(event) => setFit(event.target.value)}
             className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="">All confidence</option>
+            <option value="">All fit levels</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
           <Input value={titleKeyword} onChange={(event) => setTitleKeyword(event.target.value)} placeholder="Filter by title keyword" />
-          <Input value={matchedKeyword} onChange={(event) => setMatchedKeyword(event.target.value)} placeholder="Filter by matched keyword" />
+          <Input value={roleKeyword} onChange={(event) => setRoleKeyword(event.target.value)} placeholder="Filter by role signal" />
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[1480px] text-left text-sm">
+        <table className="min-w-[1180px] text-left text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -99,12 +99,10 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
               <th className="px-4 py-3">Current title</th>
               <th className="px-4 py-3">Location</th>
               <th className="px-4 py-3">LinkedIn</th>
-              <th className="px-4 py-3">MIDAS mention</th>
-              <th className="px-4 py-3">Matched keywords</th>
-              <th className="px-4 py-3">Evidence field</th>
-              <th className="px-4 py-3">Evidence snippet</th>
+              <th className="px-4 py-3">Seniority signals</th>
+              <th className="px-4 py-3">Role signals</th>
               <th className="px-4 py-3">Score</th>
-              <th className="px-4 py-3">Confidence</th>
+              <th className="px-4 py-3">Champion fit</th>
               <th className="px-4 py-3">Suggested action</th>
               <th className="px-4 py-3">Message</th>
             </tr>
@@ -124,13 +122,11 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
                     </a>
                   ) : "-"}
                 </td>
-                <td className="px-4 py-3">{record.hasMidasMention ? "Yes" : "No"}</td>
-                <td className="px-4 py-3">{record.matchedKeywords.join(", ") || "-"}</td>
-                <td className="px-4 py-3">{record.evidenceFields.slice(0, 2).join(", ") || "-"}</td>
-                <td className="px-4 py-3 max-w-md">{record.evidenceSnippets[0] || "Profile fields unavailable or no direct MIDAS mention found."}</td>
-                <td className="px-4 py-3 font-semibold">{record.midasMentionScore}</td>
+                <td className="px-4 py-3">{record.senioritySignals.join(", ") || "-"}</td>
+                <td className="px-4 py-3">{record.roleSignals.join(", ") || "-"}</td>
+                <td className="px-4 py-3 font-semibold">{record.decisionMakerScore}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={confidenceVariant(record.confidence)}>{record.confidence}</Badge>
+                  <Badge variant={fitVariant(record.championFit)}>{record.championFit}</Badge>
                 </td>
                 <td className="px-4 py-3 max-w-xs">{record.suggestedAction}</td>
                 <td className="px-4 py-3">
