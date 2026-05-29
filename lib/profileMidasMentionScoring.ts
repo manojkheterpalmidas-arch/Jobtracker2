@@ -69,8 +69,7 @@ export function profileMentionMessage(name: string) {
 export function buildProfileMidasMentionResult(
   contact: LushaContact,
   detection: MidasMentionDetection,
-  checkedAt: string,
-  source: ProfileMidasMentionResult["source"] = "Lusha"
+  checkedAt: string
 ): ProfileMidasMentionResult {
   const score = midasMentionScore(contact, detection);
   const confidence = detection.hasMidasMention
@@ -93,6 +92,6 @@ export function buildProfileMidasMentionResult(
     suggestedAction: profileMentionAction(confidence),
     suggestedMessage: detection.hasMidasMention ? profileMentionMessage(personName) : "No direct MIDAS mention found in available profile fields.",
     checkedAt,
-    source
+    source: "Lusha"
   };
 }

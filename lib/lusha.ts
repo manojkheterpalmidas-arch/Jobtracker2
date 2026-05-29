@@ -18,7 +18,6 @@ import {
   type MatchType,
   type MovementDirection,
   type ProfileMidasMentionRequest,
-  type ProfileMidasMentionResult,
   type ProfileMidasMentionResponse,
   type SearchRequest,
   type SearchResponse
@@ -763,88 +762,8 @@ function mockProfileMentionContacts(targetCompany: string, targetDomain?: string
   ];
 }
 
-function splitManualProfileText(value?: string) {
-  return (value || "")
-    .split(/[\n,;|]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 80);
-}
-
-function manualProfileMentionResult(
-  params: ProfileMidasMentionOptions,
-  keywords: string[],
-  checkedAt: string
-): ProfileMidasMentionResult | undefined {
-  const manualText = params.manualProfileText?.trim();
-
-  if (!manualText) {
-    return undefined;
-  }
-
-  const targetCompany = params.manualProfileCompany || params.companyName || params.normalizedDomain || "Target company";
-  const contact: LushaContact = {
-    id: `manual-${params.manualProfileLinkedinUrl || params.manualProfileName || targetCompany}`,
-    fullName: params.manualProfileName || "Manual profile text",
-    title: params.manualProfileTitle || "Manual profile evidence",
-    company: {
-      name: targetCompany,
-      domain: params.normalizedDomain || params.companyDomain
-    },
-    location: params.manualProfileLocation || params.location ? { country: params.manualProfileLocation || params.location } : undefined,
-    linkedinUrl: params.manualProfileLinkedinUrl || undefined,
-    linkedinSkills: splitManualProfileText(manualText),
-    description: manualText
-  };
-
-  return buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt, "Manual");
-}
-
-function normalizedPersonKey(value?: string) {
-  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function mergeManualProfileResults(
-  liveResults: ProfileMidasMentionResult[],
-  manualResult?: ProfileMidasMentionResult
-) {
-  if (!manualResult) {
-    return liveResults;
-  }
-
-  const manualName = normalizedPersonKey(manualResult.personName);
-  const manualLinkedin = manualResult.linkedinUrl?.toLowerCase();
-  const matchIndex = liveResults.findIndex((result) => {
-    const resultLinkedin = result.linkedinUrl?.toLowerCase();
-    if (manualLinkedin && resultLinkedin && manualLinkedin === resultLinkedin) return true;
-    return Boolean(manualName && manualName !== "manual profile text" && normalizedPersonKey(result.personName) === manualName);
-  });
-
-  if (matchIndex === -1) {
-    return [manualResult, ...liveResults];
-  }
-
-  return liveResults.map((result, index) => {
-    if (index !== matchIndex) return result;
-
-    return {
-      ...result,
-      hasMidasMention: manualResult.hasMidasMention,
-      matchedKeywords: manualResult.matchedKeywords,
-      evidenceSnippets: manualResult.evidenceSnippets,
-      evidenceFields: manualResult.evidenceFields.map((field) => `manual.${field}`),
-      confidence: manualResult.confidence,
-      midasMentionScore: manualResult.midasMentionScore,
-      suggestedAction: manualResult.suggestedAction,
-      suggestedMessage: manualResult.suggestedMessage,
-      checkedAt: manualResult.checkedAt,
-      source: "Manual" as const
-    };
-  });
-}
-
 function summarizeProfileMentionResults(
-  results: ProfileMidasMentionResult[],
+  results: ProfileMidasMentionResponse["results"],
   apiCallsUsed: number,
   creditsUsed: number | undefined,
   mockMode: boolean
@@ -869,19 +788,13 @@ export async function findProfileMidasMentions(
   ];
   const keywords = selectedMidasKeywords(params.keywordMode, params.customMidasKeywords);
   const checkedAt = new Date().toISOString();
-  const manualResult = manualProfileMentionResult(params, keywords, checkedAt);
-
-  if (manualResult) {
-    warnings.push("Manual profile text was checked locally and did not use Lusha credits.");
-  }
 
   if (!apiKey(params.localLushaApiKey)) {
     const targetCompany = params.companyName || params.normalizedDomain || "Target company";
     const contacts = mockProfileMentionContacts(targetCompany, params.normalizedDomain).slice(0, params.maxContactsToCheck);
-    const mockResults = contacts
+    const results = contacts
       .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
       .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt));
-    const results = mergeManualProfileResults(mockResults, manualResult);
 
     return {
       results,
@@ -917,11 +830,9 @@ export async function findProfileMidasMentions(
     }
   }
 
-  const liveResults = enrichedContacts
+  const results = enrichedContacts
     .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
     .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt))
-    .sort((a, b) => b.midasMentionScore - a.midasMentionScore);
-  const results = mergeManualProfileResults(liveResults, manualResult)
     .sort((a, b) => b.midasMentionScore - a.midasMentionScore);
 
   if (!results.some((result) => result.hasMidasMention)) {
@@ -929,7 +840,7 @@ export async function findProfileMidasMentions(
   }
 
   warnings.push(
-    "Lusha may not expose LinkedIn Skills or Sales Navigator profile evidence for every contact. If you can see MIDAS on LinkedIn, paste that visible text into the manual profile text checker."
+    "Lusha may not expose LinkedIn Skills or Sales Navigator profile evidence for every contact. MIDAS detection is limited to fields returned by the Lusha API."
   );
 
   return {

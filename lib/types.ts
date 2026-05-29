@@ -475,12 +475,6 @@ export const ProfileMidasMentionRequestSchema = z
     ]),
     keywordMode: z.enum(midasKeywordModeOptions),
     customMidasKeywords: z.array(z.string().trim().min(1).max(80)).max(40).optional(),
-    manualProfileName: z.string().trim().max(120).optional().or(z.literal("")),
-    manualProfileTitle: z.string().trim().max(160).optional().or(z.literal("")),
-    manualProfileCompany: z.string().trim().max(160).optional().or(z.literal("")),
-    manualProfileLocation: z.string().trim().max(160).optional().or(z.literal("")),
-    manualProfileLinkedinUrl: z.string().trim().max(300).optional().or(z.literal("")),
-    manualProfileText: z.string().trim().max(12000).optional().or(z.literal("")),
     localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
   })
   .refine((value) => Boolean(value.companyDomain || value.companyName), {
@@ -512,7 +506,7 @@ export interface ProfileMidasMentionResult extends MidasMentionDetection {
   suggestedAction: string;
   suggestedMessage: string;
   checkedAt: string;
-  source: "Lusha" | "Manual";
+  source: "Lusha";
 }
 
 export interface ProfileMidasMentionResponse {
