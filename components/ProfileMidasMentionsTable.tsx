@@ -58,7 +58,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold">Profile MIDAS mention results</h2>
-            <p className="text-sm text-muted-foreground">Direct MIDAS evidence from available Lusha profile fields.</p>
+            <p className="text-sm text-muted-foreground">Direct MIDAS evidence from available Lusha fields or manually pasted profile text.</p>
           </div>
           <Button type="button" variant="outline" onClick={onExportCsv}>
             <Download className="h-4 w-4" aria-hidden="true" />
@@ -105,6 +105,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
               <th className="px-4 py-3">Evidence snippet</th>
               <th className="px-4 py-3">Score</th>
               <th className="px-4 py-3">Confidence</th>
+              <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3">Suggested action</th>
               <th className="px-4 py-3">Message</th>
             </tr>
@@ -131,6 +132,9 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
                 <td className="px-4 py-3 font-semibold">{record.midasMentionScore}</td>
                 <td className="px-4 py-3">
                   <Badge variant={confidenceVariant(record.confidence)}>{record.confidence}</Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={record.source === "Manual" ? "success" : "muted"}>{record.source}</Badge>
                 </td>
                 <td className="px-4 py-3 max-w-xs">{record.suggestedAction}</td>
                 <td className="px-4 py-3">

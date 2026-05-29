@@ -18,6 +18,7 @@ import {
   type MatchType,
   type MovementDirection,
   type ProfileMidasMentionRequest,
+  type ProfileMidasMentionResult,
   type ProfileMidasMentionResponse,
   type SearchRequest,
   type SearchResponse
@@ -762,6 +763,104 @@ function mockProfileMentionContacts(targetCompany: string, targetDomain?: string
   ];
 }
 
+function splitManualProfileText(value?: string) {
+  return (value || "")
+    .split(/[\n,;|]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 80);
+}
+
+function manualProfileMentionResult(
+  params: ProfileMidasMentionOptions,
+  keywords: string[],
+  checkedAt: string
+): ProfileMidasMentionResult | undefined {
+  const manualText = params.manualProfileText?.trim();
+
+  if (!manualText) {
+    return undefined;
+  }
+
+  const targetCompany = params.manualProfileCompany || params.companyName || params.normalizedDomain || "Target company";
+  const contact: LushaContact = {
+    id: `manual-${params.manualProfileLinkedinUrl || params.manualProfileName || targetCompany}`,
+    fullName: params.manualProfileName || "Manual profile text",
+    title: params.manualProfileTitle || "Manual profile evidence",
+    company: {
+      name: targetCompany,
+      domain: params.normalizedDomain || params.companyDomain
+    },
+    location: params.manualProfileLocation || params.location ? { country: params.manualProfileLocation || params.location } : undefined,
+    linkedinUrl: params.manualProfileLinkedinUrl || undefined,
+    linkedinSkills: splitManualProfileText(manualText),
+    description: manualText
+  };
+
+  return buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt, "Manual");
+}
+
+function normalizedPersonKey(value?: string) {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function mergeManualProfileResults(
+  liveResults: ProfileMidasMentionResult[],
+  manualResult?: ProfileMidasMentionResult
+) {
+  if (!manualResult) {
+    return liveResults;
+  }
+
+  const manualName = normalizedPersonKey(manualResult.personName);
+  const manualLinkedin = manualResult.linkedinUrl?.toLowerCase();
+  const matchIndex = liveResults.findIndex((result) => {
+    const resultLinkedin = result.linkedinUrl?.toLowerCase();
+    if (manualLinkedin && resultLinkedin && manualLinkedin === resultLinkedin) return true;
+    return Boolean(manualName && manualName !== "manual profile text" && normalizedPersonKey(result.personName) === manualName);
+  });
+
+  if (matchIndex === -1) {
+    return [manualResult, ...liveResults];
+  }
+
+  return liveResults.map((result, index) => {
+    if (index !== matchIndex) return result;
+
+    return {
+      ...result,
+      hasMidasMention: manualResult.hasMidasMention,
+      matchedKeywords: manualResult.matchedKeywords,
+      evidenceSnippets: manualResult.evidenceSnippets,
+      evidenceFields: manualResult.evidenceFields.map((field) => `manual.${field}`),
+      confidence: manualResult.confidence,
+      midasMentionScore: manualResult.midasMentionScore,
+      suggestedAction: manualResult.suggestedAction,
+      suggestedMessage: manualResult.suggestedMessage,
+      checkedAt: manualResult.checkedAt,
+      source: "Manual" as const
+    };
+  });
+}
+
+function summarizeProfileMentionResults(
+  results: ProfileMidasMentionResult[],
+  apiCallsUsed: number,
+  creditsUsed: number | undefined,
+  mockMode: boolean
+): ProfileMidasMentionResponse["summary"] {
+  return {
+    contactsChecked: results.length,
+    mentionsFound: results.filter((result) => result.hasMidasMention).length,
+    highConfidence: results.filter((result) => result.confidence === "high" && result.hasMidasMention).length,
+    mediumConfidence: results.filter((result) => result.confidence === "medium" && result.hasMidasMention).length,
+    lowConfidence: results.filter((result) => result.confidence === "low" && result.hasMidasMention).length,
+    apiCallsUsed,
+    creditsUsed,
+    mockMode
+  };
+}
+
 export async function findProfileMidasMentions(
   params: ProfileMidasMentionOptions
 ): Promise<ProfileMidasMentionResponse> {
@@ -770,26 +869,23 @@ export async function findProfileMidasMentions(
   ];
   const keywords = selectedMidasKeywords(params.keywordMode, params.customMidasKeywords);
   const checkedAt = new Date().toISOString();
+  const manualResult = manualProfileMentionResult(params, keywords, checkedAt);
+
+  if (manualResult) {
+    warnings.push("Manual profile text was checked locally and did not use Lusha credits.");
+  }
 
   if (!apiKey(params.localLushaApiKey)) {
     const targetCompany = params.companyName || params.normalizedDomain || "Target company";
     const contacts = mockProfileMentionContacts(targetCompany, params.normalizedDomain).slice(0, params.maxContactsToCheck);
-    const results = contacts
+    const mockResults = contacts
       .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
       .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt));
+    const results = mergeManualProfileResults(mockResults, manualResult);
 
     return {
       results,
-      summary: {
-        contactsChecked: results.length,
-        mentionsFound: results.filter((result) => result.hasMidasMention).length,
-        highConfidence: results.filter((result) => result.confidence === "high" && result.hasMidasMention).length,
-        mediumConfidence: results.filter((result) => result.confidence === "medium" && result.hasMidasMention).length,
-        lowConfidence: results.filter((result) => result.confidence === "low" && result.hasMidasMention).length,
-        apiCallsUsed: 0,
-        creditsUsed: 0,
-        mockMode: true
-      },
+      summary: summarizeProfileMentionResults(results, 0, 0, true),
       warnings: [
         "Mock data: LUSHA_API_KEY is not configured, so no live Lusha calls were made.",
         ...warnings
@@ -800,7 +896,7 @@ export async function findProfileMidasMentions(
   const contactSearch = await searchContactsInCompany(params);
   const contacts = (contactSearch.results ?? contactSearch.contacts ?? []).slice(0, params.maxContactsToCheck);
   const enrichedContacts: LushaContact[] = [];
-  let enrichmentCalls = 0;
+  let enrichmentAttempts = 0;
 
   for (const contact of contacts) {
     if (!contact.id) {
@@ -808,39 +904,37 @@ export async function findProfileMidasMentions(
       continue;
     }
 
+    enrichmentAttempts += 1;
+
     try {
       const enriched = await enrichContactProfile(contact.id, params.localLushaApiKey);
       const maybeContact = (enriched as unknown as { contact?: LushaContact; person?: LushaContact }).contact ||
         (enriched as unknown as { person?: LushaContact }).person ||
         enriched;
       enrichedContacts.push({ ...contact, ...maybeContact });
-      enrichmentCalls += 1;
     } catch {
       enrichedContacts.push(contact);
     }
   }
 
-  const results = enrichedContacts
+  const liveResults = enrichedContacts
     .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
     .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt))
+    .sort((a, b) => b.midasMentionScore - a.midasMentionScore);
+  const results = mergeManualProfileResults(liveResults, manualResult)
     .sort((a, b) => b.midasMentionScore - a.midasMentionScore);
 
   if (!results.some((result) => result.hasMidasMention)) {
     warnings.push("No direct MIDAS mentions were found in the available returned/enriched Lusha profile fields.");
   }
 
+  warnings.push(
+    "Lusha may not expose LinkedIn Skills or Sales Navigator profile evidence for every contact. If you can see MIDAS on LinkedIn, paste that visible text into the manual profile text checker."
+  );
+
   return {
     results,
-    summary: {
-      contactsChecked: results.length,
-      mentionsFound: results.filter((result) => result.hasMidasMention).length,
-      highConfidence: results.filter((result) => result.confidence === "high" && result.hasMidasMention).length,
-      mediumConfidence: results.filter((result) => result.confidence === "medium" && result.hasMidasMention).length,
-      lowConfidence: results.filter((result) => result.confidence === "low" && result.hasMidasMention).length,
-      apiCallsUsed: 1 + enrichmentCalls,
-      creditsUsed: contactSearch.billing?.creditsCharged,
-      mockMode: false
-    },
+    summary: summarizeProfileMentionResults(results, 1 + enrichmentAttempts, contactSearch.billing?.creditsCharged, false),
     warnings
   };
 }

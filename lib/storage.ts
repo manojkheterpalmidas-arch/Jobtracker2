@@ -237,6 +237,9 @@ export async function storeGenericSearchRun(params: {
   const config = supabaseConfig();
   const safeRequest = { ...params.request };
   delete safeRequest.localLushaApiKey;
+  // Avoid storing pasted profile text in full. Result snippets keep the useful
+  // MIDAS evidence while reducing unnecessary personal data retention.
+  delete safeRequest.manualProfileText;
 
   if (!config) {
     return {

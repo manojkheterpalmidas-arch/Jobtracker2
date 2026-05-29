@@ -48,6 +48,10 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
   const [keywordMode, setKeywordMode] = useState<MidasKeywordMode>("default");
   const [customTitleKeywords, setCustomTitleKeywords] = useState("");
   const [customMidasKeywords, setCustomMidasKeywords] = useState("");
+  const [manualProfileName, setManualProfileName] = useState("");
+  const [manualProfileTitle, setManualProfileTitle] = useState("");
+  const [manualProfileLinkedinUrl, setManualProfileLinkedinUrl] = useState("");
+  const [manualProfileText, setManualProfileText] = useState("");
   const [localLushaApiKey, setLocalLushaApiKey] = useState("");
   const [response, setResponse] = useState<ProfileMidasMentionResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,6 +89,12 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       maxContactsToCheck,
       keywordMode,
       customMidasKeywords: parseKeywords(customMidasKeywords),
+      manualProfileName,
+      manualProfileTitle,
+      manualProfileCompany: companyName,
+      manualProfileLocation: location,
+      manualProfileLinkedinUrl,
+      manualProfileText,
       localLushaApiKey
     };
 
@@ -125,6 +135,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       "confidence",
       "suggestedAction",
       "suggestedMessage",
+      "source",
       "checkedAt"
     ];
     const rows = response.results.map((record) => [
@@ -143,6 +154,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
       record.confidence,
       record.suggestedAction,
       record.suggestedMessage,
+      record.source,
       record.checkedAt
     ]);
     const csv = [headers, ...rows].map((row) => row.map(csvValue).join(",")).join("\n");
@@ -167,7 +179,7 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
         <CardContent>
           <form className="grid gap-5" onSubmit={handleSubmit}>
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              Checking profile mentions may require enrichment and can consume more Lusha credits.
+              Checking profile mentions may require enrichment and can consume more Lusha credits. LinkedIn Skills are not always returned by Lusha.
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
@@ -227,6 +239,26 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
                 <div className="grid gap-2">
                   <Label htmlFor="profileMidasKeywords">Custom MIDAS keywords</Label>
                   <Textarea id="profileMidasKeywords" value={customMidasKeywords} onChange={(event) => setCustomMidasKeywords(event.target.value)} placeholder="One per line or comma separated" className="min-h-24" />
+                </div>
+                <div className="grid gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+                  <div>
+                    <Label htmlFor="manualProfileText">Manual profile text check</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Paste visible LinkedIn or Sales Navigator skills/profile text here when Lusha does not return those fields. This check is local and uses no Lusha credits.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <Input value={manualProfileName} onChange={(event) => setManualProfileName(event.target.value)} placeholder="Person name, optional" />
+                    <Input value={manualProfileTitle} onChange={(event) => setManualProfileTitle(event.target.value)} placeholder="Current title, optional" />
+                    <Input value={manualProfileLinkedinUrl} onChange={(event) => setManualProfileLinkedinUrl(event.target.value)} placeholder="LinkedIn URL, optional" />
+                  </div>
+                  <Textarea
+                    id="manualProfileText"
+                    value={manualProfileText}
+                    onChange={(event) => setManualProfileText(event.target.value)}
+                    placeholder="Paste visible skills or profile text, e.g. MIDAS Civil"
+                    className="min-h-28 bg-background"
+                  />
                 </div>
               </div>
 
