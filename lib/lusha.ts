@@ -1,6 +1,9 @@
 import { getStartDate, isOnOrAfter, toIsoDate } from "@/lib/date";
 import { normalizeDomain } from "@/lib/domain";
 import { generateSuggestedMessage } from "@/lib/messageTemplates";
+import { selectedMidasKeywords } from "@/lib/midasKeywords";
+import { detectMidasMentions } from "@/lib/midasMentionDetection";
+import { buildProfileMidasMentionResult } from "@/lib/profileMidasMentionScoring";
 import {
   classifyPriority,
   excludeIrrelevantTitles,
@@ -14,6 +17,8 @@ import {
   type LushaSignal,
   type MatchType,
   type MovementDirection,
+  type ProfileMidasMentionRequest,
+  type ProfileMidasMentionResponse,
   type SearchRequest,
   type SearchResponse
 } from "@/lib/types";
@@ -27,6 +32,10 @@ type LushaBilling = {
 };
 
 type SearchJobChangesOptions = SearchRequest & {
+  normalizedDomain?: string;
+};
+
+type ProfileMidasMentionOptions = ProfileMidasMentionRequest & {
   normalizedDomain?: string;
 };
 
@@ -198,6 +207,98 @@ export async function searchContacts(params: SearchJobChangesOptions, startDate:
     method: "POST",
     body: JSON.stringify(buildProspectingPayload(params, startDate))
   }, params.localLushaApiKey);
+}
+
+function profileTitleKeywords(params: ProfileMidasMentionOptions) {
+  if (params.discipline === "all_engineering") {
+    return [
+      "Engineer",
+      "Senior Engineer",
+      "Principal Engineer",
+      "Associate Engineer",
+      "Technical Director",
+      "Director",
+      "Head of Engineering"
+    ];
+  }
+
+  if (params.discipline === "civil_engineering") {
+    return [
+      "Civil Engineer",
+      "Senior Civil Engineer",
+      "Principal Civil Engineer",
+      "Civil Engineering Manager",
+      "Technical Director Civil"
+    ];
+  }
+
+  if (params.discipline === "custom") {
+    return params.customTitleKeywords ?? [];
+  }
+
+  return defaultTitleKeywords[params.discipline] ?? [];
+}
+
+function buildCompanyContactPayload(params: ProfileMidasMentionOptions) {
+  const titleKeywords = Array.from(new Set([
+    ...profileTitleKeywords(params),
+    ...(params.customTitleKeywords ?? [])
+  ].map((value) => value.trim()).filter(Boolean)));
+  const contactInclude: {
+    departments: string[];
+    jobTitles?: string[];
+    locations?: Array<{ country: string }>;
+  } = {
+    departments: ["Engineering & Technical"],
+    locations: params.location ? [{ country: params.location }] : undefined
+  };
+
+  if (titleKeywords.length) {
+    contactInclude.jobTitles = titleKeywords;
+  }
+
+  return {
+    pagination: {
+      page: 0,
+      size: Math.min(params.maxContactsToCheck, 200)
+    },
+    filters: {
+      contacts: {
+        include: contactInclude
+      },
+      companies: {
+        include: params.normalizedDomain
+          ? { domains: [params.normalizedDomain] }
+          : { names: [params.companyName || ""].filter(Boolean) }
+      }
+    },
+    options: {
+      includePartialProfiles: true
+    }
+  };
+}
+
+export async function searchContactsInCompany(params: ProfileMidasMentionOptions) {
+  return lushaFetch<{
+    requestId?: string;
+    results?: LushaContact[];
+    contacts?: LushaContact[];
+    pagination?: { total?: number };
+    billing?: LushaBilling;
+  }>("/v3/contacts/prospecting", {
+    method: "POST",
+    body: JSON.stringify(buildCompanyContactPayload(params))
+  }, params.localLushaApiKey);
+}
+
+export async function enrichContactProfile(contactId: string, localLushaApiKey?: string) {
+  // Lusha enrichment endpoint availability can vary by account/API version. The
+  // v2 person enrichment API supports personId; if unavailable, caller falls
+  // back to the prospecting contact object and local detection still works.
+  return lushaFetch<LushaContact>("/v2/person", {
+    method: "POST",
+    body: JSON.stringify({ personId: contactId })
+  }, localLushaApiKey);
 }
 
 export async function getContactSignals(
@@ -597,4 +698,138 @@ export async function searchJobChanges(params: SearchJobChangesOptions): Promise
     mockMode: false,
     lastCheckedAt: new Date().toISOString()
   }, warnings);
+}
+
+function mockProfileMentionContacts(targetCompany: string, targetDomain?: string): LushaContact[] {
+  return [
+    {
+      id: "mock-profile-1",
+      fullName: "Aisha Rahman",
+      title: "Senior Structural Engineer",
+      company: { name: targetCompany, domain: targetDomain },
+      location: { city: "London", country: "United Kingdom" },
+      linkedinUrl: "https://www.linkedin.com/in/aisha-rahman-structures",
+      skills: ["MIDAS Civil", "Eurocodes", "Structural analysis"],
+      summary: "Senior structural engineer using MIDAS Civil for bridge and building structures."
+    },
+    {
+      id: "mock-profile-2",
+      fullName: "Daniel Kovacs",
+      title: "Geotechnical Engineer",
+      company: { name: targetCompany, domain: targetDomain },
+      location: { city: "Budapest", country: "Hungary" },
+      linkedinUrl: "https://www.linkedin.com/in/daniel-kovacs-geotechnical",
+      experiences: [{ description: "Ground engineering modelling experience with GTS NX." }]
+    },
+    {
+      id: "mock-profile-3",
+      fullName: "Priya Shah",
+      title: "Principal Engineer",
+      company: { name: targetCompany, domain: targetDomain },
+      location: { city: "Manchester", country: "United Kingdom" },
+      linkedinUrl: "https://www.linkedin.com/in/priya-shah-civil",
+      certifications: [{ name: "Civil NX advanced user course" }]
+    },
+    {
+      id: "mock-profile-4",
+      fullName: "Chris Walker",
+      title: "Civil Engineer",
+      company: { name: targetCompany, domain: targetDomain },
+      location: { city: "Bristol", country: "United Kingdom" },
+      linkedinUrl: "https://www.linkedin.com/in/chris-walker-civil",
+      summary: "Civil engineer delivering infrastructure design projects."
+    },
+    {
+      id: "mock-profile-5",
+      fullName: "Morgan Lee",
+      title: "Recruitment Manager",
+      company: { name: targetCompany, domain: targetDomain },
+      location: { city: "London", country: "United Kingdom" },
+      linkedinUrl: "https://www.linkedin.com/in/morgan-lee-recruitment",
+      summary: "Recruitment and employer branding."
+    }
+  ];
+}
+
+export async function findProfileMidasMentions(
+  params: ProfileMidasMentionOptions
+): Promise<ProfileMidasMentionResponse> {
+  const warnings = [
+    "Checking profile mentions may require enrichment and can consume more Lusha credits."
+  ];
+  const keywords = selectedMidasKeywords(params.keywordMode, params.customMidasKeywords);
+  const checkedAt = new Date().toISOString();
+
+  if (!apiKey(params.localLushaApiKey)) {
+    const targetCompany = params.companyName || params.normalizedDomain || "Target company";
+    const contacts = mockProfileMentionContacts(targetCompany, params.normalizedDomain).slice(0, params.maxContactsToCheck);
+    const results = contacts
+      .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
+      .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt));
+
+    return {
+      results,
+      summary: {
+        contactsChecked: results.length,
+        mentionsFound: results.filter((result) => result.hasMidasMention).length,
+        highConfidence: results.filter((result) => result.confidence === "high" && result.hasMidasMention).length,
+        mediumConfidence: results.filter((result) => result.confidence === "medium" && result.hasMidasMention).length,
+        lowConfidence: results.filter((result) => result.confidence === "low" && result.hasMidasMention).length,
+        apiCallsUsed: 0,
+        creditsUsed: 0,
+        mockMode: true
+      },
+      warnings: [
+        "Mock data: LUSHA_API_KEY is not configured, so no live Lusha calls were made.",
+        ...warnings
+      ]
+    };
+  }
+
+  const contactSearch = await searchContactsInCompany(params);
+  const contacts = (contactSearch.results ?? contactSearch.contacts ?? []).slice(0, params.maxContactsToCheck);
+  const enrichedContacts: LushaContact[] = [];
+  let enrichmentCalls = 0;
+
+  for (const contact of contacts) {
+    if (!contact.id) {
+      enrichedContacts.push(contact);
+      continue;
+    }
+
+    try {
+      const enriched = await enrichContactProfile(contact.id, params.localLushaApiKey);
+      const maybeContact = (enriched as unknown as { contact?: LushaContact; person?: LushaContact }).contact ||
+        (enriched as unknown as { person?: LushaContact }).person ||
+        enriched;
+      enrichedContacts.push({ ...contact, ...maybeContact });
+      enrichmentCalls += 1;
+    } catch {
+      enrichedContacts.push(contact);
+    }
+  }
+
+  const results = enrichedContacts
+    .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
+    .map((contact) => buildProfileMidasMentionResult(contact, detectMidasMentions(contact, keywords), checkedAt))
+    .sort((a, b) => b.midasMentionScore - a.midasMentionScore);
+
+  if (!results.some((result) => result.hasMidasMention)) {
+    warnings.push("No direct MIDAS mentions were found in the available returned/enriched Lusha profile fields.");
+  }
+
+  return {
+    results,
+    summary: {
+      contactsChecked: results.length,
+      mentionsFound: results.filter((result) => result.hasMidasMention).length,
+      highConfidence: results.filter((result) => result.confidence === "high" && result.hasMidasMention).length,
+      mediumConfidence: results.filter((result) => result.confidence === "medium" && result.hasMidasMention).length,
+      lowConfidence: results.filter((result) => result.confidence === "low" && result.hasMidasMention).length,
+      apiCallsUsed: 1 + enrichmentCalls,
+      creditsUsed: contactSearch.billing?.creditsCharged,
+      mockMode: false
+    },
+    warnings
+  };
 }

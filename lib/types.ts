@@ -10,6 +10,14 @@ export const disciplineOptions = [
   "custom"
 ] as const;
 
+export const profileMentionDisciplineOptions = [
+  "structural_bridge",
+  "geotechnical",
+  "civil_engineering",
+  "all_engineering",
+  "custom"
+] as const;
+
 export const movementDirectionOptions = ["left", "joined", "either"] as const;
 export const visibleMovementDirectionOptions = ["joined", "either"] as const;
 
@@ -20,6 +28,8 @@ export const movementDirectionLabels: Record<MovementDirection, string> = {
 };
 
 export const signalLookupLimitOptions = [10, 25, 50, 100] as const;
+export const profileMentionContactLimitOptions = [25, 50, 100, 200] as const;
+export const midasKeywordModeOptions = ["default", "custom", "default_plus_custom"] as const;
 export const titleFilterModeOptions = [
   "defaults_plus_custom",
   "discipline_defaults",
@@ -39,6 +49,14 @@ export const disciplineLabels: Record<Discipline, string> = {
   geotechnical: "Geotechnical",
   transport_highways: "Transport / Highways",
   rail_structures: "Rail Structures",
+  custom: "Custom"
+};
+
+export const profileMentionDisciplineLabels: Record<ProfileMentionDiscipline, string> = {
+  structural_bridge: "Structural / Bridge / Civil Structures",
+  geotechnical: "Geotechnical",
+  civil_engineering: "Civil Engineering",
+  all_engineering: "All Engineering",
   custom: "Custom"
 };
 
@@ -192,11 +210,14 @@ export const SearchRequestSchema = z
 
 export type DurationDays = (typeof durationOptions)[number];
 export type Discipline = (typeof disciplineOptions)[number];
+export type ProfileMentionDiscipline = (typeof profileMentionDisciplineOptions)[number];
 export type MovementDirection = (typeof movementDirectionOptions)[number];
 export type VisibleMovementDirection = (typeof visibleMovementDirectionOptions)[number];
 export type SignalLookupLimit = (typeof signalLookupLimitOptions)[number];
+export type ProfileMentionContactLimit = (typeof profileMentionContactLimitOptions)[number];
 export type TitleFilterMode = (typeof titleFilterModeOptions)[number];
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
+export type MidasKeywordMode = (typeof midasKeywordModeOptions)[number];
 
 export interface LushaContact {
   id?: string;
@@ -221,8 +242,17 @@ export interface LushaContact {
   };
   linkedinUrl?: string;
   skills?: string[];
+  linkedinSkills?: string[];
+  headline?: string;
   summary?: string;
   description?: string;
+  experience?: unknown[];
+  experiences?: unknown[];
+  certifications?: unknown[];
+  courses?: unknown[];
+  education?: unknown[];
+  technologies?: string[];
+  tags?: string[];
 }
 
 export interface LushaSignal {
@@ -426,4 +456,69 @@ export interface SavedSearchRunsResponse {
 export interface SavedSearchRunDetailResponse {
   run?: SavedSearchRunDetail;
   storage: SavedSearchRunsResponse["storage"];
+}
+
+export const ProfileMidasMentionRequestSchema = z
+  .object({
+    companyDomain: z.string().trim().max(253).optional().or(z.literal("")),
+    companyName: z.string().trim().max(120).optional().or(z.literal("")),
+    location: z.string().trim().max(120).optional().or(z.literal("")),
+    discipline: z.enum(profileMentionDisciplineOptions),
+    customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(40).optional(),
+    seniority: z.array(z.string().trim().max(80)).max(8).optional(),
+    maxContactsToCheck: z.union([
+      z.literal(25),
+      z.literal(50),
+      z.literal(100),
+      z.literal(200)
+    ]),
+    keywordMode: z.enum(midasKeywordModeOptions),
+    customMidasKeywords: z.array(z.string().trim().min(1).max(80)).max(40).optional(),
+    localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
+  })
+  .refine((value) => Boolean(value.companyDomain || value.companyName), {
+    message: "Enter either a target company domain or company name.",
+    path: ["companyDomain"]
+  });
+
+export type ProfileMidasMentionRequest = z.infer<typeof ProfileMidasMentionRequestSchema>;
+export type MidasMentionConfidence = "high" | "medium" | "low";
+
+export interface MidasMentionDetection {
+  hasMidasMention: boolean;
+  matchedKeywords: string[];
+  evidenceSnippets: string[];
+  evidenceFields: string[];
+  confidence: MidasMentionConfidence;
+}
+
+export interface ProfileMidasMentionResult extends MidasMentionDetection {
+  id: string;
+  lushaContactId?: string;
+  personName: string;
+  currentCompany: string;
+  currentCompanyDomain?: string;
+  currentTitle: string;
+  location?: string;
+  linkedinUrl?: string;
+  midasMentionScore: number;
+  suggestedAction: string;
+  suggestedMessage: string;
+  checkedAt: string;
+  source: "Lusha";
+}
+
+export interface ProfileMidasMentionResponse {
+  results: ProfileMidasMentionResult[];
+  summary: {
+    contactsChecked: number;
+    mentionsFound: number;
+    highConfidence: number;
+    mediumConfidence: number;
+    lowConfidence: number;
+    apiCallsUsed?: number;
+    creditsUsed?: number;
+    mockMode: boolean;
+  };
+  warnings: string[];
 }

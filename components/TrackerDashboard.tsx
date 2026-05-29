@@ -4,6 +4,7 @@ import { AlertTriangle, Database, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChampionResultsTable } from "@/components/ChampionResultsTable";
 import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
+import { ProfileMidasMentionsPage } from "@/components/ProfileMidasMentionsPage";
 import { SearchForm } from "@/components/SearchForm";
 import { ResultsTable } from "@/components/ResultsTable";
 import { SavedSearches } from "@/components/SavedSearches";
@@ -123,7 +124,7 @@ export function TrackerDashboard() {
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"champion" | "tracker" | "accounts">("champion");
+  const [activeTab, setActiveTab] = useState<"champion" | "profile" | "tracker" | "accounts">("champion");
   const [loadedRequest, setLoadedRequest] = useState<Partial<SearchRequest> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -340,6 +341,13 @@ export function TrackerDashboard() {
             </Button>
             <Button
               type="button"
+              variant={activeTab === "profile" ? "default" : "outline"}
+              onClick={() => setActiveTab("profile")}
+            >
+              Profile MIDAS Mentions
+            </Button>
+            <Button
+              type="button"
               variant={activeTab === "tracker" ? "default" : "outline"}
               onClick={() => setActiveTab("tracker")}
             >
@@ -357,6 +365,8 @@ export function TrackerDashboard() {
 
           {activeTab === "accounts" ? (
             <MidasAccountDatabase />
+          ) : activeTab === "profile" ? (
+            <ProfileMidasMentionsPage />
           ) : (
             <>
               <SearchForm
