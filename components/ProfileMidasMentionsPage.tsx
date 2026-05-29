@@ -34,7 +34,11 @@ function csvValue(value: unknown) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
-export function ProfileMidasMentionsPage() {
+type ProfileMidasMentionsPageProps = {
+  initialResponse?: ProfileMidasMentionResponse | null;
+};
+
+export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentionsPageProps) {
   const [companyDomain, setCompanyDomain] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -52,6 +56,12 @@ export function ProfileMidasMentionsPage() {
   useEffect(() => {
     setLocalLushaApiKey(window.sessionStorage.getItem("localLushaApiKey") ?? "");
   }, []);
+
+  useEffect(() => {
+    if (initialResponse) {
+      setResponse(initialResponse);
+    }
+  }, [initialResponse]);
 
   function toggleSeniority(value: string) {
     setSeniority((current) =>
@@ -210,6 +220,9 @@ export function ProfileMidasMentionsPage() {
                 <div className="grid gap-2">
                   <Label htmlFor="profileTitleKeywords">Custom title keywords</Label>
                   <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => setCustomTitleKeywords(event.target.value)} placeholder="One per line or comma separated" className="min-h-24" />
+                  <p className="text-xs text-muted-foreground">
+                    For small companies, add titles like Managing Director, Founder, Owner, or Partner if needed.
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="profileMidasKeywords">Custom MIDAS keywords</Label>
@@ -284,6 +297,20 @@ export function ProfileMidasMentionsPage() {
           <ul className="mt-1 list-inside list-disc space-y-1">
             {response.warnings.map((warning) => <li key={warning}>{warning}</li>)}
           </ul>
+        </div>
+      ) : null}
+
+      {response?.storage?.status === "saved" ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+          <p className="font-semibold">Saved to Supabase</p>
+          <p>{response.storage.id ? `Search run ID: ${response.storage.id}` : "Profile mention run saved."}</p>
+        </div>
+      ) : null}
+
+      {response?.storage?.status === "failed" ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">Search completed, but was not saved</p>
+          <p>{response.storage.message || "Check Supabase environment variables and the search_runs table."}</p>
         </div>
       ) : null}
 

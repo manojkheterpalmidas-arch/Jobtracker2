@@ -7,6 +7,7 @@ create table if not exists public.search_runs (
 
 alter table public.search_runs
 add column if not exists company_domain text,
+add column if not exists search_type text,
 add column if not exists company_name text,
 add column if not exists location text,
 add column if not exists duration_days integer,

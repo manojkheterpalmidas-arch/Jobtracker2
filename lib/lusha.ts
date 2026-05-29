@@ -236,7 +236,18 @@ function profileTitleKeywords(params: ProfileMidasMentionOptions) {
     return params.customTitleKeywords ?? [];
   }
 
-  return defaultTitleKeywords[params.discipline] ?? [];
+  const defaults = defaultTitleKeywords[params.discipline] ?? [];
+
+  return [
+    ...defaults,
+    "Managing Director",
+    "Director",
+    "Founder",
+    "Owner",
+    "Partner",
+    "Bridge Engineering",
+    "Engineering Director"
+  ];
 }
 
 function buildCompanyContactPayload(params: ProfileMidasMentionOptions) {

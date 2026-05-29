@@ -23,6 +23,7 @@ type StoredSearchRun = {
   summary: SearchResponse["summary"];
   warnings: string[];
   results: SearchResponse["results"];
+  searchType?: string;
 };
 
 declare global {
@@ -211,10 +212,117 @@ export async function storeSearchRun(
   }
 }
 
+export async function storeGenericSearchRun(params: {
+  searchType: "job_change_tracker" | "champion_finder" | "profile_midas_mentions";
+  request: Record<string, unknown>;
+  summary: Record<string, unknown>;
+  warnings: string[];
+  results: unknown[];
+  companyDomain?: string;
+  companyName?: string;
+  location?: string;
+  durationDays?: number;
+  discipline?: string;
+  titleFilterMode?: string;
+  maxSignalLookups?: number;
+  boostMidasMentions?: boolean;
+  mockMode?: boolean;
+  totalContactsFound?: number;
+  jobChangesFound?: number;
+  highPriorityContacts?: number;
+  creditsUsed?: number;
+  apiCallsUsed?: number;
+  signalLookupsRequested?: number;
+}): Promise<SearchResponse["storage"]> {
+  const config = supabaseConfig();
+  const safeRequest = { ...params.request };
+  delete safeRequest.localLushaApiKey;
+
+  if (!config) {
+    return {
+      status: "memory",
+      id: crypto.randomUUID(),
+      message: "Search run stored in memory because Supabase is not configured."
+    };
+  }
+
+  const payload = {
+    search_type: params.searchType,
+    company_domain: params.companyDomain || null,
+    company_name: params.companyName || null,
+    location: params.location || null,
+    duration_days: params.durationDays ?? null,
+    discipline: params.discipline || null,
+    title_filter_mode: params.titleFilterMode || null,
+    max_signal_lookups: params.maxSignalLookups ?? null,
+    boost_midas_mentions: params.boostMidasMentions ?? true,
+    match_type: params.companyDomain ? "domain" : params.companyName ? "name" : null,
+    mock_mode: Boolean(params.mockMode),
+    total_contacts_found: params.totalContactsFound ?? 0,
+    job_changes_found: params.jobChangesFound ?? 0,
+    high_priority_contacts: params.highPriorityContacts ?? 0,
+    credits_used: params.creditsUsed ?? null,
+    api_calls_used: params.apiCallsUsed ?? 0,
+    signal_lookups_requested: params.signalLookupsRequested ?? 0,
+    warnings: params.warnings,
+    request: safeRequest,
+    results: params.results
+  };
+  const legacyPayload = {
+    company_domain: params.companyDomain || null,
+    company_name: params.companyName || null,
+    location: params.location || null,
+    duration_days: params.durationDays ?? null,
+    discipline: params.discipline || null,
+    match_type: params.companyDomain ? "domain" : params.companyName ? "name" : null,
+    mock_mode: Boolean(params.mockMode),
+    total_contacts_found: params.totalContactsFound ?? 0,
+    job_changes_found: params.jobChangesFound ?? 0,
+    high_priority_contacts: params.highPriorityContacts ?? 0,
+    credits_used: params.creditsUsed ?? null,
+    api_calls_used: params.apiCallsUsed ?? 0,
+    signal_lookups_requested: params.signalLookupsRequested ?? 0,
+    warnings: params.warnings,
+    request: { ...safeRequest, searchType: params.searchType },
+    results: params.results
+  };
+
+  try {
+    let response = await insertSearchRun(config, payload);
+    let error = "";
+
+    if (!response.ok) {
+      error = await supabaseErrorText(response);
+      response = await insertSearchRun(config, legacyPayload);
+
+      if (!response.ok) {
+        return {
+          status: "failed",
+          message: `Supabase search-run save failed. Full payload error: ${error}. Legacy payload error: ${await supabaseErrorText(response)}.`
+        };
+      }
+    }
+
+    const rows = (await response.json()) as Array<{ id?: string }>;
+
+    return {
+      status: "saved",
+      id: rows[0]?.id,
+      message: "Search run saved to Supabase."
+    };
+  } catch {
+    return {
+      status: "failed",
+      message: "Supabase search-run save failed."
+    };
+  }
+}
+
 function mapStoredSearchRun(run: StoredSearchRun): SavedSearchRun {
   return {
     id: run.id,
     createdAt: run.createdAt,
+    searchType: run.searchType,
     companyDomain: run.request.companyDomain || undefined,
     companyName: run.request.companyName || undefined,
     location: run.request.location || undefined,
@@ -246,6 +354,7 @@ function mapSupabaseSearchRun(row: Record<string, unknown>): SavedSearchRun {
   return {
     id: String(row.id),
     createdAt: String(row.created_at),
+    searchType: typeof row.search_type === "string" ? row.search_type : asRecord(row.request).searchType as string | undefined,
     companyDomain: typeof row.company_domain === "string" ? row.company_domain : undefined,
     companyName: typeof row.company_name === "string" ? row.company_name : undefined,
     location: typeof row.location === "string" ? row.location : undefined,

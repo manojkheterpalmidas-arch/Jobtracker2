@@ -106,7 +106,11 @@ export function SavedSearches({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{run.companyName || run.companyDomain || "Unnamed company"}</p>
-                  <p className="text-xs text-muted-foreground">{run.companyDomain || "Name search"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {run.searchType === "profile_midas_mentions" ? "Profile MIDAS Mentions" : run.searchType === "champion_finder" ? "Champion Finder" : "Job Change Tracker"}
+                    {" - "}
+                    {run.companyDomain || "Name search"}
+                  </p>
                 </div>
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />

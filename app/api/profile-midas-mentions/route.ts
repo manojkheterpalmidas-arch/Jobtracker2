@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isValidDomain, normalizeDomain } from "@/lib/domain";
 import { findProfileMidasMentions, LushaApiError } from "@/lib/lusha";
+import { storeGenericSearchRun } from "@/lib/storage";
 import { ProfileMidasMentionRequestSchema } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -47,13 +48,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await findProfileMidasMentions({
+    const searchRequest = {
       ...parsed.data,
       companyDomain,
       normalizedDomain: companyDomain
+    };
+    const response = await findProfileMidasMentions(searchRequest);
+    const storage = await storeGenericSearchRun({
+      searchType: "profile_midas_mentions",
+      request: searchRequest,
+      summary: response.summary,
+      warnings: response.warnings,
+      results: response.results,
+      companyDomain,
+      companyName: parsed.data.companyName || undefined,
+      location: parsed.data.location || undefined,
+      discipline: parsed.data.discipline,
+      maxSignalLookups: parsed.data.maxContactsToCheck,
+      mockMode: response.summary.mockMode,
+      totalContactsFound: response.summary.contactsChecked,
+      jobChangesFound: response.summary.mentionsFound,
+      highPriorityContacts: response.summary.highConfidence,
+      creditsUsed: response.summary.creditsUsed,
+      apiCallsUsed: response.summary.apiCallsUsed,
+      signalLookupsRequested: response.summary.contactsChecked
     });
 
-    return NextResponse.json(response);
+    return NextResponse.json({
+      ...response,
+      storage
+    });
   } catch (error) {
     if (error instanceof LushaApiError) {
       return NextResponse.json({ error: error.friendlyMessage }, { status: error.status });

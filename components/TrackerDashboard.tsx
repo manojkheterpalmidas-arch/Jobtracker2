@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import type {
   ChampionContactJobChange,
   ContactJobChange,
+  ProfileMidasMentionResponse,
+  ProfileMidasMentionResult,
   SavedSearchRunsResponse,
   SearchRequest,
   SearchResponse
@@ -116,6 +118,10 @@ function isChampionRecord(record: SearchResponse["results"][number]): record is 
   return "championLikelihoodScore" in record;
 }
 
+function isProfileMentionRecord(record: unknown): record is ProfileMidasMentionResult {
+  return Boolean(record && typeof record === "object" && "midasMentionScore" in record);
+}
+
 export function TrackerDashboard() {
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [history, setHistory] = useState<SavedSearchRunsResponse | null>(null);
@@ -126,6 +132,7 @@ export function TrackerDashboard() {
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"champion" | "profile" | "tracker" | "accounts">("champion");
   const [loadedRequest, setLoadedRequest] = useState<Partial<SearchRequest> | null>(null);
+  const [profileMentionResponse, setProfileMentionResponse] = useState<ProfileMidasMentionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -154,6 +161,7 @@ export function TrackerDashboard() {
     setLoading(true);
     setError(null);
     setLoadedRequest(payload);
+    setProfileMentionResponse(null);
 
     try {
       const result = await fetch(activeTab === "champion" ? "/api/search-champions" : "/api/search-job-changes", {
@@ -195,14 +203,43 @@ export function TrackerDashboard() {
 
       const savedResults = (data.run.results ?? []) as SearchResponse["results"];
       const championResults = savedResults.filter(isChampionRecord);
+      const profileResults = ((data.run.results ?? []) as unknown[]).filter(isProfileMentionRecord);
       const savedRequest = data.run.request as Partial<SearchRequest>;
+      const savedSearchType = data.run.searchType || (data.run.request as Record<string, unknown>).searchType;
+      const savedIsProfileMentionSearch = savedSearchType === "profile_midas_mentions" || profileResults.length > 0;
       const savedIsChampionSearch =
-        championResults.length > 0 ||
-        typeof savedRequest.onlyKnownMidasAccounts === "boolean" ||
-        typeof savedRequest.showUnknownPreviousCompanies === "boolean";
+        !savedIsProfileMentionSearch &&
+        (championResults.length > 0 ||
+          typeof savedRequest.onlyKnownMidasAccounts === "boolean" ||
+          typeof savedRequest.showUnknownPreviousCompanies === "boolean");
 
       setLoadedRequest(savedRequest);
-      setActiveTab(savedIsChampionSearch ? "champion" : "tracker");
+      setActiveTab(savedIsProfileMentionSearch ? "profile" : savedIsChampionSearch ? "champion" : "tracker");
+      if (savedIsProfileMentionSearch) {
+        setProfileMentionResponse({
+          results: profileResults,
+          summary: {
+            contactsChecked: data.run.totalContactsFound,
+            mentionsFound: data.run.jobChangesFound,
+            highConfidence: data.run.highPriorityContacts,
+            mediumConfidence: profileResults.filter((record) => record.confidence === "medium" && record.hasMidasMention).length,
+            lowConfidence: profileResults.filter((record) => record.confidence === "low" && record.hasMidasMention).length,
+            apiCallsUsed: data.run.apiCallsUsed,
+            creditsUsed: data.run.creditsUsed,
+            mockMode: data.run.mockMode
+          },
+          warnings: data.run.warnings ?? [],
+          storage: {
+            status: data.storage?.status === "supabase" ? "saved" : data.storage?.status,
+            id: data.run.id,
+            message: "Loaded from saved search history."
+          }
+        });
+        setResponse(null);
+        setSavedPanelOpen(false);
+        return;
+      }
+      setProfileMentionResponse(null);
       setResponse({
         results: data.run.results,
         summary: {
@@ -366,7 +403,7 @@ export function TrackerDashboard() {
           {activeTab === "accounts" ? (
             <MidasAccountDatabase />
           ) : activeTab === "profile" ? (
-            <ProfileMidasMentionsPage />
+            <ProfileMidasMentionsPage initialResponse={profileMentionResponse} />
           ) : (
             <>
               <SearchForm

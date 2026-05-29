@@ -3,6 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.search_runs (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
+  search_type text,
   company_domain text,
   company_name text,
   location text,
@@ -25,6 +26,7 @@ create table if not exists public.search_runs (
 );
 
 alter table public.search_runs
+add column if not exists search_type text,
 add column if not exists boost_midas_mentions boolean not null default true;
 
 create index if not exists search_runs_created_at_idx on public.search_runs (created_at desc);

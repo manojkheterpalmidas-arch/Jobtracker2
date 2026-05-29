@@ -422,6 +422,7 @@ export interface SearchResponse {
 export interface SavedSearchRun {
   id: string;
   createdAt: string;
+  searchType?: string;
   companyDomain?: string;
   companyName?: string;
   location?: string;
@@ -442,7 +443,7 @@ export interface SavedSearchRun {
 export interface SavedSearchRunDetail extends SavedSearchRun {
   warnings: string[];
   request: Record<string, unknown>;
-  results: Array<ContactJobChange | ChampionContactJobChange>;
+  results: Array<ContactJobChange | ChampionContactJobChange | ProfileMidasMentionResult>;
 }
 
 export interface SavedSearchRunsResponse {
@@ -521,4 +522,9 @@ export interface ProfileMidasMentionResponse {
     mockMode: boolean;
   };
   warnings: string[];
+  storage?: {
+    status: "saved" | "disabled" | "failed" | "memory";
+    id?: string;
+    message?: string;
+  };
 }
