@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid profile MIDAS mention request.", details: parsed.error.flatten().fieldErrors },
+        { error: "Invalid decision-maker search request.", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       maxSignalLookups: parsed.data.maxContactsToCheck,
       mockMode: response.summary.mockMode,
       totalContactsFound: response.summary.contactsChecked,
-      jobChangesFound: response.summary.mentionsFound,
+      jobChangesFound: response.summary.decisionMakersFound,
       highPriorityContacts: response.summary.highConfidence,
       creditsUsed: response.summary.creditsUsed,
       apiCallsUsed: response.summary.apiCallsUsed,
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { error: "Unexpected server error while checking profile MIDAS mentions." },
+      { error: "Unexpected server error while finding decision makers." },
       { status: 500 }
     );
   }
