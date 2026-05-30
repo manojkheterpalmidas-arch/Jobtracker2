@@ -24,7 +24,6 @@ import {
 type SearchFormProps = {
   loading: boolean;
   onSearch: (request: SearchRequest) => void;
-  mode?: "champion" | "tracker";
   initialRequest?: SearchFormDraft | null;
   onDraftChange?: (request: SearchFormDraft) => void;
 };
@@ -50,7 +49,7 @@ function toSearchDiscipline(value?: string): Discipline {
   return "structural_bridge";
 }
 
-export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest, onDraftChange }: SearchFormProps) {
+export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }: SearchFormProps) {
   const [companyDomain, setCompanyDomain] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -220,44 +219,42 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
             </div>
           </div>
 
-          {mode === "champion" ? (
-            <div className="grid gap-3 rounded-lg border bg-emerald-50/50 p-4">
-              <label className="flex items-start gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={onlyKnownMidasAccounts}
-                  onChange={(event) => {
-                    setOnlyKnownMidasAccounts(event.target.checked);
-                    updateDraft({ onlyKnownMidasAccounts: event.target.checked });
-                  }}
-                  className="mt-1 h-4 w-4 accent-primary"
-                />
-                <span>
-                  <span className="block font-medium">Only show people from known MIDAS accounts</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    Default on. Results are filtered to people whose previous company matches the MIDAS Account Database.
-                  </span>
+          <div className="grid gap-3 rounded-lg border bg-emerald-50/50 p-4">
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={onlyKnownMidasAccounts}
+                onChange={(event) => {
+                  setOnlyKnownMidasAccounts(event.target.checked);
+                  updateDraft({ onlyKnownMidasAccounts: event.target.checked });
+                }}
+                className="mt-1 h-4 w-4 accent-primary"
+              />
+              <span>
+                <span className="block font-medium">Only show people from known MIDAS accounts</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Default on. Turn this off and enable unknown companies below to use this as a broader job-change tracker.
                 </span>
-              </label>
-              <label className="flex items-start gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showUnknownPreviousCompanies}
-                  onChange={(event) => {
-                    setShowUnknownPreviousCompanies(event.target.checked);
-                    updateDraft({ showUnknownPreviousCompanies: event.target.checked });
-                  }}
-                  className="mt-1 h-4 w-4 accent-primary"
-                />
-                <span>
-                  <span className="block font-medium">Show unknown previous companies too</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    Useful for audit checks, but it can add low-confidence rows to the table.
-                  </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={showUnknownPreviousCompanies}
+                onChange={(event) => {
+                  setShowUnknownPreviousCompanies(event.target.checked);
+                  updateDraft({ showUnknownPreviousCompanies: event.target.checked });
+                }}
+                className="mt-1 h-4 w-4 accent-primary"
+              />
+              <span>
+                <span className="block font-medium">Show all job changes, including unknown previous companies</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Useful for a general job-change search. MIDAS matches will still be highlighted where found.
                 </span>
-              </label>
-            </div>
-          ) : null}
+              </span>
+            </label>
+          </div>
 
           <div className="grid items-start gap-5 border-t pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="grid gap-3 self-start">
@@ -376,7 +373,7 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
           <div className="flex justify-start border-t pt-5">
             <Button type="submit" disabled={loading} className="w-full sm:w-fit">
               <Search className="h-4 w-4" aria-hidden="true" />
-              {loading ? "Searching Lusha signals..." : mode === "champion" ? "Find MIDAS champions" : "Find job changes"}
+              {loading ? "Searching Lusha signals..." : "Find job changes"}
             </Button>
           </div>
         </form>

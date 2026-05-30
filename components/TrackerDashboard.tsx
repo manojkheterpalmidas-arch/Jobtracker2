@@ -6,14 +6,12 @@ import { ChampionResultsTable } from "@/components/ChampionResultsTable";
 import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
 import { ProfileMidasMentionsPage } from "@/components/ProfileMidasMentionsPage";
 import { SearchForm } from "@/components/SearchForm";
-import { ResultsTable } from "@/components/ResultsTable";
 import { SavedSearches } from "@/components/SavedSearches";
 import { SummaryCards } from "@/components/SummaryCards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
   ChampionContactJobChange,
-  ContactJobChange,
   ProfileMidasMentionResponse,
   ProfileMidasMentionRequest,
   ProfileMidasMentionResult,
@@ -136,7 +134,7 @@ export function TrackerDashboard() {
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"champion" | "profile" | "tracker" | "accounts">("champion");
+  const [activeTab, setActiveTab] = useState<"jobChanges" | "profile" | "accounts">("jobChanges");
   const [loadedRequest, setLoadedRequest] = useState<SharedSearchDraft | null>(null);
   const [profileMentionResponse, setProfileMentionResponse] = useState<ProfileMidasMentionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +175,7 @@ export function TrackerDashboard() {
     setProfileMentionResponse(null);
 
     try {
-      const result = await fetch(activeTab === "champion" ? "/api/search-champions" : "/api/search-job-changes", {
+      const result = await fetch("/api/search-champions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -220,14 +218,14 @@ export function TrackerDashboard() {
       const savedRequest = data.run.request as SharedSearchDraft;
       const savedSearchType = data.run.searchType || (data.run.request as Record<string, unknown>).searchType;
       const savedIsProfileMentionSearch = savedSearchType === "profile_midas_mentions" || profileResults.length > 0;
-      const savedIsChampionSearch =
+      const savedIsJobChangeSearch =
         !savedIsProfileMentionSearch &&
         (championResults.length > 0 ||
           typeof savedRequest.onlyKnownMidasAccounts === "boolean" ||
           typeof savedRequest.showUnknownPreviousCompanies === "boolean");
 
       setLoadedRequest(savedRequest);
-      setActiveTab(savedIsProfileMentionSearch ? "profile" : savedIsChampionSearch ? "champion" : "tracker");
+      setActiveTab(savedIsProfileMentionSearch ? "profile" : "jobChanges");
       if (savedIsProfileMentionSearch) {
         setProfileMentionResponse({
           results: profileResults,
@@ -258,7 +256,7 @@ export function TrackerDashboard() {
         summary: {
           totalContactsFound: data.run.totalContactsFound,
           jobChangesFound: savedResults.length || data.run.jobChangesFound,
-          highPriorityContacts: savedIsChampionSearch
+          highPriorityContacts: savedIsJobChangeSearch
             ? championResults.filter((record) => record.championPotential === "High").length
             : data.run.highPriorityContacts,
           matchType: "domain",
@@ -268,16 +266,16 @@ export function TrackerDashboard() {
           signalLookupsRequested: data.run.signalLookupsRequested,
           mockMode: data.run.mockMode,
           lastCheckedAt: data.run.createdAt,
-          knownMidasAccounts: savedIsChampionSearch
+          knownMidasAccounts: savedIsJobChangeSearch
             ? championResults.filter((record) => record.midasAccountMatched).length
             : undefined,
-          highPotentialChampions: savedIsChampionSearch
+          highPotentialChampions: savedIsJobChangeSearch
             ? championResults.filter((record) => record.championPotential === "High").length
             : undefined,
-          mediumPotentialChampions: savedIsChampionSearch
+          mediumPotentialChampions: savedIsJobChangeSearch
             ? championResults.filter((record) => record.championPotential === "Medium").length
             : undefined,
-          unknownPreviousCompanies: savedIsChampionSearch
+          unknownPreviousCompanies: savedIsJobChangeSearch
             ? championResults.filter((record) => !record.midasAccountMatched).length
             : undefined,
           midasDatabaseCompaniesCount: undefined
@@ -384,10 +382,10 @@ export function TrackerDashboard() {
           <nav className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant={activeTab === "champion" ? "default" : "outline"}
-              onClick={() => setActiveTab("champion")}
+              variant={activeTab === "jobChanges" ? "default" : "outline"}
+              onClick={() => setActiveTab("jobChanges")}
             >
-              Champion Finder
+              Job Changes
             </Button>
             <Button
               type="button"
@@ -395,13 +393,6 @@ export function TrackerDashboard() {
               onClick={() => setActiveTab("profile")}
             >
               Decision Makers
-            </Button>
-            <Button
-              type="button"
-              variant={activeTab === "tracker" ? "default" : "outline"}
-              onClick={() => setActiveTab("tracker")}
-            >
-              Job Change Tracker
             </Button>
             <Button
               type="button"
@@ -426,7 +417,6 @@ export function TrackerDashboard() {
               <SearchForm
                 loading={loading}
                 onSearch={handleSearch}
-                mode={activeTab === "champion" ? "champion" : "tracker"}
                 initialRequest={loadedRequest}
                 onDraftChange={updateSharedDraft}
               />
@@ -496,16 +486,9 @@ export function TrackerDashboard() {
               </div>
             ) : null}
 
-            {!loading && response && activeTab === "champion" ? (
+            {!loading && response && activeTab === "jobChanges" ? (
               <ChampionResultsTable
                 results={response.results.filter(isChampionRecord)}
-                onExportCsv={() => downloadCsv(response)}
-              />
-            ) : null}
-
-            {!loading && response && activeTab === "tracker" ? (
-              <ResultsTable
-                results={response.results.filter((record): record is ContactJobChange => !isChampionRecord(record))}
                 onExportCsv={() => downloadCsv(response)}
               />
             ) : null}

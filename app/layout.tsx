@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Engineer Job Change Tracker",
+  title: "MIDAS Champion Migration Finder",
   description: "Track engineering contacts who changed jobs using Lusha signals."
 };
 

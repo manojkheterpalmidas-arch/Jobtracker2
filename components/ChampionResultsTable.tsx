@@ -37,7 +37,7 @@ export function ChampionResultsTable({ results, onExportCsv }: ChampionResultsTa
   if (!results.length) {
     return (
       <div className="rounded-lg border bg-card p-10 text-center shadow-subtle">
-        <p className="text-base font-semibold">No MIDAS champion matches yet</p>
+        <p className="text-base font-semibold">No job-change matches yet</p>
         <p className="mt-2 text-sm text-muted-foreground">
           Try a broader duration, fewer title filters, or add more previous-company records to the MIDAS Account Database.
         </p>
@@ -49,8 +49,8 @@ export function ChampionResultsTable({ results, onExportCsv }: ChampionResultsTa
     <div className="rounded-lg border bg-card shadow-subtle">
       <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold">MIDAS champion candidates</h2>
-          <p className="text-sm text-muted-foreground">Sorted by champion score and signal recency.</p>
+          <h2 className="text-base font-semibold">Job-change contacts</h2>
+          <p className="text-sm text-muted-foreground">MIDAS champion matches are highlighted where the previous company is known.</p>
         </div>
         <Button type="button" variant="outline" onClick={onExportCsv}>
           <Download className="h-4 w-4" aria-hidden="true" />

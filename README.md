@@ -10,13 +10,37 @@ A Next.js App Router sales-intelligence app for finding engineers who recently j
 4. The previous company is matched against `midas_accounts` in Supabase.
 5. Matching people are scored as possible MIDAS-aware champions and shown with the reason, action, and message.
 
-The old job-change workflow is still available in the `Job Change Tracker` tab.
-
 ## Tabs
 
-- `Champion Finder`: primary workflow for finding possible MIDAS champions.
-- `Job Change Tracker`: general Lusha job-change search.
+- `Job Changes`: primary workflow for finding recent job changes and highlighting possible MIDAS champions.
+- `Decision Makers`: finds senior engineering contacts at the target company who could influence or champion engineering software decisions.
 - `Admin: MIDAS Account Database`: passcode-protected internal database management.
+
+## Decision Makers
+
+This workflow is different from Job Changes and does not use MIDAS keywords:
+
+- Job Changes infers likely MIDAS exposure from a person's previous company.
+- Decision Makers finds current target-company contacts with senior engineering or technical leadership titles.
+
+The ranking favours titles such as:
+
+- Principal Engineer
+- Associate / Associate Director
+- Technical Director
+- Director / Head of Department
+- Managing Director / Partner / Owner
+- Senior bridge, structural, civil, geotechnical, rail, highways, or infrastructure engineers
+
+The app:
+
+1. Searches relevant contacts by target company, discipline/title, location, and optional seniority.
+2. Checks only up to the selected max contact limit.
+3. Scores contacts by seniority and engineering role fit.
+4. Sorts likely decision makers first.
+5. Provides a suggested warm, non-salesy outreach message.
+
+This can consume Lusha prospecting credits. Keep `Max contacts to check` low while testing, then increase only when the search is useful.
 
 ## MIDAS Account Database
 
@@ -90,7 +114,7 @@ The manual Lusha key field is intentionally still available for production: it s
 
 ## Matching Logic
 
-The Champion Finder compares previous companies to the MIDAS database in this order:
+The Job Changes workflow compares previous companies to the MIDAS database in this order:
 
 1. Exact previous company domain match.
 2. Exact normalized company name match.

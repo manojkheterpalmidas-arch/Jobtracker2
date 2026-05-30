@@ -107,7 +107,7 @@ export function SavedSearches({
                 <div>
                   <p className="font-semibold">{run.companyName || run.companyDomain || "Unnamed company"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {run.searchType === "profile_midas_mentions" ? "Decision Makers" : run.searchType === "champion_finder" ? "Champion Finder" : "Job Change Tracker"}
+                    {run.searchType === "profile_midas_mentions" ? "Decision Makers" : "Job Changes"}
                     {" - "}
                     {run.companyDomain || "Name search"}
                   </p>
