@@ -208,6 +208,29 @@ export async function searchContacts(params: SearchJobChangesOptions, startDate:
 }
 
 function profileTitleKeywords(params: ProfileMidasMentionOptions) {
+  const decisionMakerTitles = [
+    "Associate Director",
+    "Director",
+    "Technical Director",
+    "Managing Director",
+    "Regional Director",
+    "Discipline Lead",
+    "Technical Lead",
+    "Team Leader",
+    "Head of Department",
+    "Head of Engineering",
+    "Head of Structures",
+    "Head of Bridges",
+    "Principal",
+    "Principal Engineer",
+    "Partner",
+    "Owner",
+    "Founder",
+    "Professor",
+    "Assistant Professor",
+    "Associate Professor"
+  ];
+
   if (params.discipline === "all_engineering") {
     return [
       "Engineer",
@@ -216,7 +239,8 @@ function profileTitleKeywords(params: ProfileMidasMentionOptions) {
       "Associate Engineer",
       "Technical Director",
       "Director",
-      "Head of Engineering"
+      "Head of Engineering",
+      ...decisionMakerTitles
     ];
   }
 
@@ -226,25 +250,22 @@ function profileTitleKeywords(params: ProfileMidasMentionOptions) {
       "Senior Civil Engineer",
       "Principal Civil Engineer",
       "Civil Engineering Manager",
-      "Technical Director Civil"
+      "Technical Director Civil",
+      ...decisionMakerTitles
     ];
   }
 
   if (params.discipline === "custom") {
-    return params.customTitleKeywords ?? [];
+    return [...decisionMakerTitles, ...(params.customTitleKeywords ?? [])];
   }
 
   const defaults = defaultTitleKeywords[params.discipline] ?? [];
 
   return [
     ...defaults,
-    "Managing Director",
-    "Director",
-    "Founder",
-    "Owner",
-    "Partner",
     "Bridge Engineering",
-    "Engineering Director"
+    "Engineering Director",
+    ...decisionMakerTitles
   ];
 }
 
