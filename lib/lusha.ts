@@ -45,6 +45,82 @@ type ProfileMidasMentionOptions = ProfileMidasMentionRequest & {
   normalizedDomain?: string;
 };
 
+type LushaLocationFilter = {
+  city?: string;
+  state?: string;
+  country?: string;
+};
+
+const countryAliases = new Map<string, string>([
+  ["uk", "United Kingdom"],
+  ["u.k.", "United Kingdom"],
+  ["gb", "United Kingdom"],
+  ["great britain", "United Kingdom"],
+  ["england", "United Kingdom"],
+  ["scotland", "United Kingdom"],
+  ["wales", "United Kingdom"],
+  ["northern ireland", "United Kingdom"],
+  ["usa", "United States"],
+  ["us", "United States"],
+  ["u.s.", "United States"],
+  ["united states of america", "United States"],
+  ["uae", "United Arab Emirates"]
+]);
+
+const commonCountries = new Set([
+  "austria",
+  "belgium",
+  "canada",
+  "denmark",
+  "finland",
+  "france",
+  "germany",
+  "hungary",
+  "india",
+  "ireland",
+  "italy",
+  "netherlands",
+  "norway",
+  "poland",
+  "portugal",
+  "spain",
+  "sweden",
+  "switzerland",
+  "united arab emirates",
+  "united kingdom",
+  "united states"
+]);
+
+function normalizeLocationName(value: string) {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  return countryAliases.get(trimmed.toLowerCase()) ?? trimmed;
+}
+
+function looksLikeCountry(value: string) {
+  const normalized = normalizeLocationName(value).toLowerCase();
+  return commonCountries.has(normalized);
+}
+
+function parseLushaLocation(input?: string): LushaLocationFilter[] | undefined {
+  const value = input?.trim();
+  if (!value) return undefined;
+
+  const parts = value.split(",").map((part) => normalizeLocationName(part)).filter(Boolean);
+
+  if (parts.length >= 3) {
+    const [city, state, ...countryParts] = parts;
+    return [{ city, state, country: countryParts.join(", ") }];
+  }
+
+  if (parts.length === 2) {
+    const [cityOrState, country] = parts;
+    return [{ city: cityOrState, country }];
+  }
+
+  const location = normalizeLocationName(value);
+  return looksLikeCountry(location) ? [{ country: location }] : [{ city: location }];
+}
+
 export class LushaApiError extends Error {
   status: number;
   friendlyMessage: string;
@@ -146,14 +222,14 @@ function buildProspectingPayload(params: SearchJobChangesOptions, startDate: str
   const contactInclude: {
     departments: string[];
     jobTitles?: string[];
-    locations?: Array<{ country: string }>;
+    locations?: LushaLocationFilter[];
     signals: {
       types: string[];
       startDate: string;
     };
   } = {
     departments: ["Engineering & Technical"],
-    locations: params.location ? [{ country: params.location }] : undefined,
+    locations: parseLushaLocation(params.location),
     signals: {
       types: ["companyChange"],
       startDate
@@ -285,9 +361,9 @@ function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = 
   const contactInclude: {
     departments?: string[];
     jobTitles?: string[];
-    locations?: Array<{ country: string }>;
+    locations?: LushaLocationFilter[];
   } = {
-    locations: params.location ? [{ country: params.location }] : undefined
+    locations: parseLushaLocation(params.location)
   };
 
   if (!broad) {

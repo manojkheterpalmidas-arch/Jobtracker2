@@ -165,10 +165,10 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
 
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="grid gap-2">
-              <Label htmlFor="location">Location / country</Label>
+              <Label htmlFor="location">Location / city or country</Label>
               <Input
                 id="location"
-                placeholder="United Kingdom"
+                placeholder="United Kingdom, Dublin, or Dublin, Ireland"
                 value={location}
                 onChange={(event) => {
                   setLocation(event.target.value);
@@ -176,6 +176,9 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                 }}
                 className="h-11"
               />
+              <p className="text-xs text-muted-foreground">
+                Use a country, a city, or City, Country for narrower searches.
+              </p>
             </div>
 
             <div className="grid gap-2">

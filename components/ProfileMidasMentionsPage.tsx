@@ -212,11 +212,14 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
 
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="grid gap-2">
-                <Label htmlFor="profileLocation">Location / country</Label>
+                <Label htmlFor="profileLocation">Location / city or country</Label>
                 <Input id="profileLocation" value={location} onChange={(event) => {
                   setLocation(event.target.value);
                   updateDraft({ location: event.target.value });
-                }} placeholder="United Kingdom" className="h-11" />
+                }} placeholder="United Kingdom, Dublin, or Dublin, Ireland" className="h-11" />
+                <p className="text-xs text-muted-foreground">
+                  Use a country, a city, or City, Country for narrower searches.
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="profileDiscipline">Discipline</Label>
