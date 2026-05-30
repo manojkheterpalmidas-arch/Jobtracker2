@@ -394,12 +394,14 @@ function mapSupabaseSearchRunDetail(row: Record<string, unknown>): SavedSearchRu
   };
 }
 
-export async function listSearchRuns(limit = 20): Promise<SavedSearchRunsResponse> {
+export async function listSearchRuns(limit?: number): Promise<SavedSearchRunsResponse> {
   const config = supabaseConfig();
 
   if (!config) {
+    const runs = getSearchRunStore();
+
     return {
-      runs: getSearchRunStore().slice(0, limit).map(mapStoredSearchRun),
+      runs: (typeof limit === "number" ? runs.slice(0, limit) : runs).map(mapStoredSearchRun),
       storage: {
         status: "memory",
         message: "Supabase is not configured; showing only searches saved in this server session."
@@ -411,9 +413,12 @@ export async function listSearchRuns(limit = 20): Promise<SavedSearchRunsRespons
     // Select all columns so older search_runs tables keep working if they do
     // not yet have newer optional fields such as boost_midas_mentions.
     select: "*",
-    order: "created_at.desc",
-    limit: String(limit)
+    order: "created_at.desc"
   });
+
+  if (typeof limit === "number") {
+    params.set("limit", String(limit));
+  }
 
   try {
     const response = await fetch(`${config.url}/rest/v1/search_runs?${params.toString()}`, {

@@ -143,7 +143,7 @@ export function TrackerDashboard() {
     setHistoryLoading(true);
 
     try {
-      const result = await fetch("/api/search-runs?limit=12", {
+      const result = await fetch("/api/search-runs", {
         method: "GET",
         cache: "no-store"
       });

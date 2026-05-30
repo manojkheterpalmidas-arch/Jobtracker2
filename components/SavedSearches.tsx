@@ -35,7 +35,10 @@ export function SavedSearches({
   onDelete
 }: SavedSearchesProps) {
   const [query, setQuery] = useState("");
-  const runs = useMemo(() => history?.runs ?? [], [history?.runs]);
+  const runs = useMemo(
+    () => [...(history?.runs ?? [])].sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()),
+    [history?.runs]
+  );
   const filteredRuns = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 

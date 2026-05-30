@@ -13,8 +13,9 @@ export async function GET(request: Request) {
     return NextResponse.json(response, { status: response.run ? 200 : 404 });
   }
 
-  const limit = Math.min(Number(url.searchParams.get("limit") ?? 20), 50);
-  const response = await listSearchRuns(Number.isFinite(limit) ? limit : 20);
+  const limitParam = url.searchParams.get("limit");
+  const parsedLimit = limitParam ? Number(limitParam) : undefined;
+  const response = await listSearchRuns(Number.isFinite(parsedLimit) ? parsedLimit : undefined);
 
   return NextResponse.json(response);
 }
