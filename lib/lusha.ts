@@ -296,6 +296,8 @@ function profileTitleKeywords(params: ProfileMidasMentionOptions) {
     "Associate Director",
     "Director",
     "Technical Director",
+    "Technical Manager",
+    "Engineering Manager",
     "Managing Director",
     "Regional Director",
     "Discipline Lead",
@@ -957,14 +959,14 @@ export async function findProfileMidasMentions(
   let broadSearch: LushaContactSearchResponse | undefined;
   let broadFallbackUsed = false;
 
-  if (filteredContacts.length < Math.min(params.maxContactsToCheck, 10)) {
+  if (filteredContacts.length < params.maxContactsToCheck) {
     try {
       broadSearch = await searchContactsInCompany(params, { broad: true });
       const broadContacts = extractContacts(broadSearch);
       contacts = mergeContacts(filteredContacts, broadContacts);
       broadFallbackUsed = true;
       warnings.push(
-        "Broad fallback used: the first title-filtered search returned few contacts, so the app also searched the target company without title/department filters and ranked the merged results locally."
+        "Broad fallback used: the first title-filtered search returned fewer contacts than your selected cap, so the app also searched the target company without title/department filters and ranked the merged results locally."
       );
     } catch {
       warnings.push("Broad fallback search failed, so only the title-filtered contacts were scored.");
