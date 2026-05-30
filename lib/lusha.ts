@@ -29,6 +29,14 @@ type LushaBilling = {
   resultsReturned?: number;
 };
 
+type LushaContactSearchResponse = {
+  requestId?: string;
+  results?: LushaContact[];
+  contacts?: LushaContact[];
+  pagination?: { total?: number };
+  billing?: LushaBilling;
+};
+
 type SearchJobChangesOptions = SearchRequest & {
   normalizedDomain?: string;
 };
@@ -269,22 +277,46 @@ function profileTitleKeywords(params: ProfileMidasMentionOptions) {
   ];
 }
 
-function buildCompanyContactPayload(params: ProfileMidasMentionOptions) {
+function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = false) {
   const titleKeywords = Array.from(new Set([
     ...profileTitleKeywords(params),
     ...(params.customTitleKeywords ?? [])
   ].map((value) => value.trim()).filter(Boolean)));
   const contactInclude: {
-    departments: string[];
+    departments?: string[];
     jobTitles?: string[];
     locations?: Array<{ country: string }>;
   } = {
-    departments: ["Engineering & Technical"],
     locations: params.location ? [{ country: params.location }] : undefined
   };
 
-  if (titleKeywords.length) {
+  if (!broad) {
+    contactInclude.departments = ["Engineering & Technical"];
+  }
+
+  if (!broad && titleKeywords.length) {
     contactInclude.jobTitles = titleKeywords;
+  }
+
+  const filters: {
+    contacts?: {
+      include: typeof contactInclude;
+    };
+    companies: {
+      include: { domains: string[] } | { names: string[] };
+    };
+  } = {
+    companies: {
+      include: params.normalizedDomain
+        ? { domains: [params.normalizedDomain] }
+        : { names: [params.companyName || ""].filter(Boolean) }
+    }
+  };
+
+  if (Object.values(contactInclude).some(Boolean)) {
+    filters.contacts = {
+      include: contactInclude
+    };
   }
 
   return {
@@ -292,32 +324,17 @@ function buildCompanyContactPayload(params: ProfileMidasMentionOptions) {
       page: 0,
       size: Math.min(params.maxContactsToCheck, 200)
     },
-    filters: {
-      contacts: {
-        include: contactInclude
-      },
-      companies: {
-        include: params.normalizedDomain
-          ? { domains: [params.normalizedDomain] }
-          : { names: [params.companyName || ""].filter(Boolean) }
-      }
-    },
+    filters,
     options: {
       includePartialProfiles: true
     }
   };
 }
 
-export async function searchContactsInCompany(params: ProfileMidasMentionOptions) {
-  return lushaFetch<{
-    requestId?: string;
-    results?: LushaContact[];
-    contacts?: LushaContact[];
-    pagination?: { total?: number };
-    billing?: LushaBilling;
-  }>("/v3/contacts/prospecting", {
+export async function searchContactsInCompany(params: ProfileMidasMentionOptions, options?: { broad?: boolean }) {
+  return lushaFetch<LushaContactSearchResponse>("/v3/contacts/prospecting", {
     method: "POST",
-    body: JSON.stringify(buildCompanyContactPayload(params))
+    body: JSON.stringify(buildCompanyContactPayload(params, Boolean(options?.broad)))
   }, params.localLushaApiKey);
 }
 
@@ -797,6 +814,41 @@ function summarizeProfileMentionResults(
   };
 }
 
+function extractContacts(response: LushaContactSearchResponse) {
+  return response.results ?? response.contacts ?? [];
+}
+
+function contactDedupeKey(contact: LushaContact) {
+  return (
+    contact.id ||
+    contact.socialLinks?.linkedin ||
+    contact.linkedinUrl ||
+    [
+      contact.fullName || [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+      typeof contact.jobTitle === "string" ? contact.jobTitle : contact.jobTitle?.title || contact.title,
+      contact.company?.domain || contact.company?.name
+    ]
+      .filter(Boolean)
+      .join("|")
+      .toLowerCase()
+  );
+}
+
+function mergeContacts(...groups: LushaContact[][]) {
+  const seen = new Set<string>();
+  const merged: LushaContact[] = [];
+
+  for (const contact of groups.flat()) {
+    const key = contactDedupeKey(contact);
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(contact);
+  }
+
+  return merged;
+}
+
 export async function findProfileMidasMentions(
   params: ProfileMidasMentionOptions
 ): Promise<ProfileMidasMentionResponse> {
@@ -824,7 +876,26 @@ export async function findProfileMidasMentions(
   }
 
   const contactSearch = await searchContactsInCompany(params);
-  const contacts = (contactSearch.results ?? contactSearch.contacts ?? []).slice(0, params.maxContactsToCheck);
+  const filteredContacts = extractContacts(contactSearch);
+  let contacts = filteredContacts;
+  let broadSearch: LushaContactSearchResponse | undefined;
+  let broadFallbackUsed = false;
+
+  if (filteredContacts.length < Math.min(params.maxContactsToCheck, 10)) {
+    try {
+      broadSearch = await searchContactsInCompany(params, { broad: true });
+      const broadContacts = extractContacts(broadSearch);
+      contacts = mergeContacts(filteredContacts, broadContacts);
+      broadFallbackUsed = true;
+      warnings.push(
+        "Broad fallback used: the first title-filtered search returned few contacts, so the app also searched the target company without title/department filters and ranked the merged results locally."
+      );
+    } catch {
+      warnings.push("Broad fallback search failed, so only the title-filtered contacts were scored.");
+    }
+  }
+
+  contacts = contacts.slice(0, params.maxContactsToCheck);
   const enrichedContacts: LushaContact[] = [];
   let enrichmentAttempts = 0;
 
@@ -858,7 +929,12 @@ export async function findProfileMidasMentions(
 
   return {
     results,
-    summary: summarizeProfileMentionResults(results, 1 + enrichmentAttempts, contactSearch.billing?.creditsCharged, false),
+    summary: summarizeProfileMentionResults(
+      results,
+      1 + (broadFallbackUsed ? 1 : 0) + enrichmentAttempts,
+      (contactSearch.billing?.creditsCharged ?? 0) + (broadSearch?.billing?.creditsCharged ?? 0),
+      false
+    ),
     warnings
   };
 }
