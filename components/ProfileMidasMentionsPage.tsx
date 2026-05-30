@@ -9,7 +9,8 @@ import {
   type ProfileMentionContactLimit,
   type ProfileMentionDiscipline,
   type ProfileMidasMentionRequest,
-  type ProfileMidasMentionResponse
+  type ProfileMidasMentionResponse,
+  type SearchRequest
 } from "@/lib/types";
 import { ProfileMidasMentionsTable } from "@/components/ProfileMidasMentionsTable";
 import { Button } from "@/components/ui/button";
@@ -33,9 +34,23 @@ function csvValue(value: unknown) {
 
 type ProfileMidasMentionsPageProps = {
   initialResponse?: ProfileMidasMentionResponse | null;
+  initialRequest?: DecisionMakerDraft | null;
+  onDraftChange?: (request: DecisionMakerDraft) => void;
 };
 
-export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentionsPageProps) {
+type DecisionMakerDraft = Omit<Partial<ProfileMidasMentionRequest>, "discipline"> &
+  Omit<Partial<SearchRequest>, "discipline"> & {
+    discipline?: string;
+  };
+
+function toProfileDiscipline(value?: string): ProfileMentionDiscipline {
+  if (value === "geotechnical" || value === "custom" || value === "structural_bridge") return value;
+  if (value === "transport_highways" || value === "rail_structures") return "all_engineering";
+  if (value === "civil_engineering" || value === "all_engineering") return value;
+  return "structural_bridge";
+}
+
+export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDraftChange }: ProfileMidasMentionsPageProps) {
   const [companyDomain, setCompanyDomain] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -58,10 +73,29 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
     }
   }, [initialResponse]);
 
+  useEffect(() => {
+    if (!initialRequest) return;
+
+    setCompanyDomain(initialRequest.companyDomain ?? companyDomain);
+    setCompanyName(initialRequest.companyName ?? companyName);
+    setLocation(initialRequest.location ?? location);
+    setDiscipline(toProfileDiscipline(initialRequest.discipline));
+    setSeniority(initialRequest.seniority ?? seniority);
+    setMaxContactsToCheck(initialRequest.maxContactsToCheck ?? maxContactsToCheck);
+    setCustomTitleKeywords((initialRequest.customTitleKeywords ?? []).join("\n"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRequest]);
+
+  function updateDraft(patch: DecisionMakerDraft) {
+    onDraftChange?.(patch);
+  }
+
   function toggleSeniority(value: string) {
-    setSeniority((current) =>
-      current.includes(value) ? current.filter((item) => item !== value) : [...current, value]
-    );
+    setSeniority((current) => {
+      const nextValue = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+      updateDraft({ seniority: nextValue });
+      return nextValue;
+    });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -162,22 +196,35 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
             <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <div className="grid gap-2">
                 <Label htmlFor="profileCompanyDomain">Target company domain</Label>
-                <Input id="profileCompanyDomain" value={companyDomain} onChange={(event) => setCompanyDomain(event.target.value)} placeholder="wsp.com" className="h-12 text-base font-medium" />
+                <Input id="profileCompanyDomain" value={companyDomain} onChange={(event) => {
+                  setCompanyDomain(event.target.value);
+                  updateDraft({ companyDomain: event.target.value });
+                }} placeholder="wsp.com" className="h-12 text-base font-medium" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="profileCompanyName">Target company name, optional fallback</Label>
-                <Input id="profileCompanyName" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="WSP" className="h-12" />
+                <Input id="profileCompanyName" value={companyName} onChange={(event) => {
+                  setCompanyName(event.target.value);
+                  updateDraft({ companyName: event.target.value });
+                }} placeholder="WSP" className="h-12" />
               </div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="grid gap-2">
                 <Label htmlFor="profileLocation">Location / country</Label>
-                <Input id="profileLocation" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="United Kingdom" className="h-11" />
+                <Input id="profileLocation" value={location} onChange={(event) => {
+                  setLocation(event.target.value);
+                  updateDraft({ location: event.target.value });
+                }} placeholder="United Kingdom" className="h-11" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="profileDiscipline">Discipline</Label>
-                <select id="profileDiscipline" value={discipline} onChange={(event) => setDiscipline(event.target.value as ProfileMentionDiscipline)} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <select id="profileDiscipline" value={discipline} onChange={(event) => {
+                  const nextValue = event.target.value as ProfileMentionDiscipline;
+                  setDiscipline(nextValue);
+                  updateDraft({ discipline: nextValue });
+                }} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {profileMentionDisciplineOptions.map((option) => (
                     <option key={option} value={option}>{profileMentionDisciplineLabels[option]}</option>
                   ))}
@@ -185,7 +232,11 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="profileMaxContacts">Max contacts to check</Label>
-                <select id="profileMaxContacts" value={maxContactsToCheck} onChange={(event) => setMaxContactsToCheck(Number(event.target.value) as ProfileMentionContactLimit)} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <select id="profileMaxContacts" value={maxContactsToCheck} onChange={(event) => {
+                  const nextValue = Number(event.target.value) as ProfileMentionContactLimit;
+                  setMaxContactsToCheck(nextValue);
+                  updateDraft({ maxContactsToCheck: nextValue });
+                }} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {profileMentionContactLimitOptions.map((limit) => (
                     <option key={limit} value={limit}>Check max {limit}</option>
                   ))}
@@ -208,7 +259,10 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="profileTitleKeywords">Additional title keywords</Label>
-                  <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => setCustomTitleKeywords(event.target.value)} placeholder="One per line or comma separated" className="min-h-24" />
+                  <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => {
+                    setCustomTitleKeywords(event.target.value);
+                    updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
+                  }} placeholder="One per line or comma separated" className="min-h-24" />
                   <p className="text-xs text-muted-foreground">
                     Add titles like Managing Director, Founder, Owner, Partner, Discipline Lead, or Regional Director if needed.
                   </p>
@@ -221,7 +275,10 @@ export function ProfileMidasMentionsPage({ initialResponse }: ProfileMidasMentio
                     <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
                     <p className="text-sm font-medium">Lusha API key</p>
                   </div>
-                  <Input type="password" autoComplete="off" value={localLushaApiKey} onChange={(event) => setLocalLushaApiKey(event.target.value)} placeholder="Paste key for this browser session" />
+                  <Input type="password" autoComplete="off" value={localLushaApiKey} onChange={(event) => {
+                    setLocalLushaApiKey(event.target.value);
+                    updateDraft({ localLushaApiKey: event.target.value });
+                  }} placeholder="Paste key for this browser session" />
                 </div>
               </aside>
             </div>

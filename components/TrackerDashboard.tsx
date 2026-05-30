@@ -15,11 +15,17 @@ import type {
   ChampionContactJobChange,
   ContactJobChange,
   ProfileMidasMentionResponse,
+  ProfileMidasMentionRequest,
   ProfileMidasMentionResult,
   SavedSearchRunsResponse,
   SearchRequest,
   SearchResponse
 } from "@/lib/types";
+
+type SharedSearchDraft = Omit<Partial<SearchRequest>, "discipline"> &
+  Omit<Partial<ProfileMidasMentionRequest>, "discipline"> & {
+    discipline?: string;
+  };
 
 function csvValue(value: unknown) {
   const stringValue = String(value ?? "");
@@ -131,7 +137,7 @@ export function TrackerDashboard() {
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"champion" | "profile" | "tracker" | "accounts">("champion");
-  const [loadedRequest, setLoadedRequest] = useState<Partial<SearchRequest> | null>(null);
+  const [loadedRequest, setLoadedRequest] = useState<SharedSearchDraft | null>(null);
   const [profileMentionResponse, setProfileMentionResponse] = useState<ProfileMidasMentionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,6 +162,13 @@ export function TrackerDashboard() {
   useEffect(() => {
     void loadHistory();
   }, []);
+
+  function updateSharedDraft(patch: SharedSearchDraft) {
+    setLoadedRequest((current) => ({
+      ...(current ?? {}),
+      ...patch
+    }));
+  }
 
   async function handleSearch(payload: SearchRequest) {
     setLoading(true);
@@ -204,7 +217,7 @@ export function TrackerDashboard() {
       const savedResults = (data.run.results ?? []) as SearchResponse["results"];
       const championResults = savedResults.filter(isChampionRecord);
       const profileResults = ((data.run.results ?? []) as unknown[]).filter(isProfileMentionRecord);
-      const savedRequest = data.run.request as Partial<SearchRequest>;
+      const savedRequest = data.run.request as SharedSearchDraft;
       const savedSearchType = data.run.searchType || (data.run.request as Record<string, unknown>).searchType;
       const savedIsProfileMentionSearch = savedSearchType === "profile_midas_mentions" || profileResults.length > 0;
       const savedIsChampionSearch =
@@ -403,7 +416,11 @@ export function TrackerDashboard() {
           {activeTab === "accounts" ? (
             <MidasAccountDatabase />
           ) : activeTab === "profile" ? (
-            <ProfileMidasMentionsPage initialResponse={profileMentionResponse} />
+            <ProfileMidasMentionsPage
+              initialResponse={profileMentionResponse}
+              initialRequest={loadedRequest}
+              onDraftChange={updateSharedDraft}
+            />
           ) : (
             <>
               <SearchForm
@@ -411,6 +428,7 @@ export function TrackerDashboard() {
                 onSearch={handleSearch}
                 mode={activeTab === "champion" ? "champion" : "tracker"}
                 initialRequest={loadedRequest}
+                onDraftChange={updateSharedDraft}
               />
 
           <section className="grid content-start gap-4">

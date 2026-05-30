@@ -25,8 +25,11 @@ type SearchFormProps = {
   loading: boolean;
   onSearch: (request: SearchRequest) => void;
   mode?: "champion" | "tracker";
-  initialRequest?: Partial<SearchRequest> | null;
+  initialRequest?: SearchFormDraft | null;
+  onDraftChange?: (request: SearchFormDraft) => void;
 };
+
+type SearchFormDraft = Omit<Partial<SearchRequest>, "discipline"> & { discipline?: string };
 
 function parseKeywords(value: string) {
   return value
@@ -37,7 +40,17 @@ function parseKeywords(value: string) {
 
 const showManualApiKeyInput = true;
 
-export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest }: SearchFormProps) {
+function toSearchDiscipline(value?: string): Discipline {
+  if (value === "geotechnical" || value === "transport_highways" || value === "rail_structures" || value === "custom" || value === "structural_bridge") {
+    return value;
+  }
+  if (value === "civil_engineering" || value === "all_engineering") {
+    return "structural_bridge";
+  }
+  return "structural_bridge";
+}
+
+export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest, onDraftChange }: SearchFormProps) {
   const [companyDomain, setCompanyDomain] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -60,18 +73,23 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
   useEffect(() => {
     if (!initialRequest) return;
 
-    setCompanyDomain(initialRequest.companyDomain ?? "");
-    setCompanyName(initialRequest.companyName ?? "");
-    setLocation(initialRequest.location ?? "");
+    setCompanyDomain(initialRequest.companyDomain ?? companyDomain);
+    setCompanyName(initialRequest.companyName ?? companyName);
+    setLocation(initialRequest.location ?? location);
     setDurationDays(initialRequest.durationDays ?? 90);
-    setDiscipline(initialRequest.discipline ?? "structural_bridge");
+    setDiscipline(toSearchDiscipline(initialRequest.discipline));
     setMaxSignalLookups(initialRequest.maxSignalLookups ?? 25);
     setTitleFilterMode(initialRequest.titleFilterMode ?? "defaults_plus_custom");
     setBoostMidasMentions(initialRequest.boostMidasMentions ?? true);
     setOnlyKnownMidasAccounts(initialRequest.onlyKnownMidasAccounts ?? true);
     setShowUnknownPreviousCompanies(initialRequest.showUnknownPreviousCompanies ?? false);
     setCustomTitleKeywords((initialRequest.customTitleKeywords ?? []).join("\n"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRequest]);
+
+  function updateDraft(patch: Partial<SearchRequest>) {
+    onDraftChange?.(patch);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -117,7 +135,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 id="companyDomain"
                 placeholder="wsp.com"
                 value={companyDomain}
-                onChange={(event) => setCompanyDomain(event.target.value)}
+                onChange={(event) => {
+                  setCompanyDomain(event.target.value);
+                  updateDraft({ companyDomain: event.target.value });
+                }}
                 className="h-12 text-base font-medium"
               />
               <p className="text-xs text-muted-foreground">
@@ -131,7 +152,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 id="companyName"
                 placeholder="WSP"
                 value={companyName}
-                onChange={(event) => setCompanyName(event.target.value)}
+                onChange={(event) => {
+                  setCompanyName(event.target.value);
+                  updateDraft({ companyName: event.target.value });
+                }}
                 className="h-12"
               />
               <p className="text-xs text-muted-foreground">
@@ -147,7 +171,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 id="location"
                 placeholder="United Kingdom"
                 value={location}
-                onChange={(event) => setLocation(event.target.value)}
+                onChange={(event) => {
+                  setLocation(event.target.value);
+                  updateDraft({ location: event.target.value });
+                }}
                 className="h-11"
               />
             </div>
@@ -157,7 +184,11 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
               <select
                 id="durationDays"
                 value={durationDays}
-                onChange={(event) => setDurationDays(Number(event.target.value) as DurationDays)}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value) as DurationDays;
+                  setDurationDays(nextValue);
+                  updateDraft({ durationDays: nextValue });
+                }}
                 className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {durationOptions.map((days) => (
@@ -173,7 +204,11 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
               <select
                 id="discipline"
                 value={discipline}
-                onChange={(event) => setDiscipline(event.target.value as Discipline)}
+                onChange={(event) => {
+                  const nextValue = event.target.value as Discipline;
+                  setDiscipline(nextValue);
+                  updateDraft({ discipline: nextValue });
+                }}
                 className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {disciplineOptions.map((option) => (
@@ -191,7 +226,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 <input
                   type="checkbox"
                   checked={onlyKnownMidasAccounts}
-                  onChange={(event) => setOnlyKnownMidasAccounts(event.target.checked)}
+                  onChange={(event) => {
+                    setOnlyKnownMidasAccounts(event.target.checked);
+                    updateDraft({ onlyKnownMidasAccounts: event.target.checked });
+                  }}
                   className="mt-1 h-4 w-4 accent-primary"
                 />
                 <span>
@@ -205,7 +243,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 <input
                   type="checkbox"
                   checked={showUnknownPreviousCompanies}
-                  onChange={(event) => setShowUnknownPreviousCompanies(event.target.checked)}
+                  onChange={(event) => {
+                    setShowUnknownPreviousCompanies(event.target.checked);
+                    updateDraft({ showUnknownPreviousCompanies: event.target.checked });
+                  }}
                   className="mt-1 h-4 w-4 accent-primary"
                 />
                 <span>
@@ -230,7 +271,11 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 <select
                   id="titleFilterMode"
                   value={titleFilterMode}
-                  onChange={(event) => setTitleFilterMode(event.target.value as TitleFilterMode)}
+                  onChange={(event) => {
+                    const nextValue = event.target.value as TitleFilterMode;
+                    setTitleFilterMode(nextValue);
+                    updateDraft({ titleFilterMode: nextValue });
+                  }}
                   className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:mt-0"
                 >
                   {titleFilterModeOptions.map((option) => (
@@ -244,7 +289,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 id="customTitleKeywords"
                 placeholder="One per line or comma separated"
                 value={customTitleKeywords}
-                onChange={(event) => setCustomTitleKeywords(event.target.value)}
+                onChange={(event) => {
+                  setCustomTitleKeywords(event.target.value);
+                  updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
+                }}
                 className="min-h-32"
               />
             </div>
@@ -255,7 +303,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                   <input
                     type="checkbox"
                     checked={boostMidasMentions}
-                    onChange={(event) => setBoostMidasMentions(event.target.checked)}
+                    onChange={(event) => {
+                      setBoostMidasMentions(event.target.checked);
+                      updateDraft({ boostMidasMentions: event.target.checked });
+                    }}
                     className="mt-1 h-4 w-4 accent-primary"
                   />
                   <span>
@@ -277,7 +328,11 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                 <select
                   id="maxSignalLookups"
                   value={maxSignalLookups}
-                  onChange={(event) => setMaxSignalLookups(Number(event.target.value) as SignalLookupLimit)}
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value) as SignalLookupLimit;
+                    setMaxSignalLookups(nextValue);
+                    updateDraft({ maxSignalLookups: nextValue });
+                  }}
                   className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {signalLookupLimitOptions.map((limit) => (
@@ -307,7 +362,10 @@ export function SearchForm({ loading, onSearch, mode = "tracker", initialRequest
                       autoComplete="off"
                       placeholder="Paste key for local testing"
                       value={localLushaApiKey}
-                      onChange={(event) => setLocalLushaApiKey(event.target.value)}
+                      onChange={(event) => {
+                        setLocalLushaApiKey(event.target.value);
+                        updateDraft({ localLushaApiKey: event.target.value });
+                      }}
                     />
                   </div>
                 </div>
