@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clipboard, Download, ExternalLink } from "lucide-react";
+import { Check, Clipboard, Download, ExternalLink, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import { RevealContactDetails } from "@/components/RevealContactDetails";
 import { Badge } from "@/components/ui/badge";
@@ -44,9 +44,12 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
 
   if (!results.length) {
     return (
-      <div className="rounded-lg border bg-card p-10 text-center shadow-subtle">
-        <p className="text-base font-semibold">No contacts checked yet</p>
-        <p className="mt-2 text-sm text-muted-foreground">
+      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-subtle">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-primary">
+          <Target className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <p className="mt-4 text-base font-semibold text-slate-950">No decision makers checked yet</p>
+        <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
           Search a target company to find senior engineers and likely technical decision makers.
         </p>
       </div>
@@ -54,11 +57,14 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
   }
 
   return (
-    <div className="rounded-lg border bg-card shadow-subtle">
-      <div className="grid gap-3 border-b p-4">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-subtle">
+      <div className="grid gap-3 border-b border-slate-200/80 bg-white p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold">Decision maker results</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-950">Decision maker results</h2>
+              <Badge variant="muted">{filteredResults.length} shown</Badge>
+            </div>
             <p className="text-sm text-muted-foreground">Senior engineers and technical leaders ranked by role fit.</p>
           </div>
           <Button type="button" variant="outline" onClick={onExportCsv}>
@@ -67,7 +73,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
           </Button>
         </div>
         <div className="grid gap-3 md:grid-cols-[auto_180px_1fr_1fr]">
-          <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
             <input
               type="checkbox"
               checked={showOnlyDecisionMakers}
@@ -79,7 +85,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
           <select
             value={fit}
             onChange={(event) => setFit(event.target.value)}
-            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
           >
             <option value="">All fit levels</option>
             <option value="high">High</option>
@@ -93,7 +99,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
 
       <div className="overflow-x-auto">
         <table className="min-w-[1320px] text-left text-sm">
-          <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Current company</th>
@@ -111,9 +117,12 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
           </thead>
           <tbody className="divide-y">
             {filteredResults.map((record) => (
-              <tr key={record.id} className="align-top hover:bg-muted/30">
-                <td className="px-4 py-3 font-medium">{record.personName}</td>
-                <td className="px-4 py-3">{record.currentCompany}</td>
+              <tr key={record.id} className="align-top transition hover:bg-slate-50/80">
+                <td className="px-4 py-3">
+                  <div className="font-semibold text-slate-950">{record.personName}</div>
+                  {record.championFit !== "low" ? <Badge variant="info" className="mt-2">Decision maker</Badge> : null}
+                </td>
+                <td className="px-4 py-3 font-medium">{record.currentCompany}</td>
                 <td className="px-4 py-3">{record.currentTitle}</td>
                 <td className="px-4 py-3">{record.location || "-"}</td>
                 <td className="px-4 py-3">
@@ -129,7 +138,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
                 </td>
                 <td className="px-4 py-3">{record.senioritySignals.join(", ") || "-"}</td>
                 <td className="px-4 py-3">{record.roleSignals.join(", ") || "-"}</td>
-                <td className="px-4 py-3 font-semibold">{record.decisionMakerScore}</td>
+                <td className="px-4 py-3 font-semibold text-slate-950">{record.decisionMakerScore}</td>
                 <td className="px-4 py-3">
                   <Badge variant={fitVariant(record.championFit)}>{record.championFit}</Badge>
                 </td>

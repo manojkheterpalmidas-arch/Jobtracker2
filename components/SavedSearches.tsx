@@ -62,8 +62,8 @@ export function SavedSearches({
   }, [query, runs]);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-slate-200/80 bg-white pb-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -105,7 +105,7 @@ export function SavedSearches({
 
         <div className="grid max-h-[calc(100vh-240px)] gap-3 overflow-y-auto pr-1">
           {filteredRuns.map((run) => (
-            <div key={run.id} className="rounded-lg border bg-background p-3">
+            <div key={run.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-subtle">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{run.companyName || run.companyDomain || "Unnamed company"}</p>
@@ -121,15 +121,15 @@ export function SavedSearches({
                 </span>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                <div className="rounded-md bg-muted p-2">
+                <div className="rounded-xl bg-slate-50 p-2">
                   <p className="text-muted-foreground">Contacts</p>
                   <p className="text-sm font-semibold">{run.totalContactsFound}</p>
                 </div>
-                <div className="rounded-md bg-muted p-2">
+                <div className="rounded-xl bg-slate-50 p-2">
                   <p className="text-muted-foreground">{run.searchType === "profile_midas_mentions" ? "Decision makers" : "Changes"}</p>
                   <p className="text-sm font-semibold">{run.jobChangesFound}</p>
                 </div>
-                <div className="rounded-md bg-muted p-2">
+                <div className="rounded-xl bg-slate-50 p-2">
                   <p className="text-muted-foreground">Credits</p>
                   <p className="text-sm font-semibold">{run.creditsUsed ?? 0}</p>
                 </div>

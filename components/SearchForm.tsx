@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { KeyRound, Search, SlidersHorizontal } from "lucide-react";
+import { Gauge, KeyRound, Search, ShieldCheck, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -115,18 +115,33 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-5 w-5 text-primary" aria-hidden="true" />
-          <CardTitle>Search criteria</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-slate-200/80 bg-white pb-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-xl bg-primary/10 p-2 text-primary">
+                <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <CardTitle className="text-lg">Search criteria</CardTitle>
+            </div>
+            <CardDescription className="mt-2">
+              Domain matching is used first. Company name is only a fallback or display label.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">Domain-first</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">Lusha signals</span>
+          </div>
         </div>
-        <CardDescription>
-          Domain matching is used first. Company name is only a fallback or label.
-        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form className="grid gap-6" onSubmit={handleSubmit}>
+      <CardContent className="p-6">
+        <form className="grid gap-7" onSubmit={handleSubmit}>
+          <section className="grid gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-950">Target account</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Use the company domain whenever possible for cleaner account matching.</p>
+            </div>
           <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="grid gap-2">
               <Label htmlFor="companyDomain">Company domain</Label>
@@ -138,7 +153,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                   setCompanyDomain(event.target.value);
                   updateDraft({ companyDomain: event.target.value });
                 }}
-                className="h-12 text-base font-medium"
+                className="h-12 text-base font-semibold"
               />
               <p className="text-xs text-muted-foreground">
                 Recommended: use company domain for better matching, e.g. wsp.com
@@ -162,7 +177,13 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               </p>
             </div>
           </div>
+          </section>
 
+          <section className="grid gap-4 border-t border-slate-200/80 pt-5">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-950">Search parameters</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Control the geography, time window, and engineering discipline.</p>
+            </div>
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="grid gap-2">
               <Label htmlFor="location">Location / city or country</Label>
@@ -191,7 +212,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                   setDurationDays(nextValue);
                   updateDraft({ durationDays: nextValue });
                 }}
-                className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
               >
                 {durationOptions.map((days) => (
                   <option key={days} value={days}>
@@ -211,7 +232,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                   setDiscipline(nextValue);
                   updateDraft({ discipline: nextValue });
                 }}
-                className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
               >
                 {disciplineOptions.map((option) => (
                   <option key={option} value={option}>
@@ -221,9 +242,14 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               </select>
             </div>
           </div>
+          </section>
 
-          <div className="grid gap-3 rounded-lg border bg-emerald-50/50 p-4">
-            <label className="flex items-start gap-3 text-sm">
+          <section className="grid gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+              <h3 className="text-sm font-semibold text-slate-950">Search scope</h3>
+            </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/70 bg-white/80 p-3 text-sm shadow-sm transition hover:border-emerald-300">
               <input
                 type="checkbox"
                 checked={onlyKnownMidasAccounts}
@@ -240,7 +266,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                 </span>
               </span>
             </label>
-            <label className="flex items-start gap-3 text-sm">
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/70 bg-white/80 p-3 text-sm shadow-sm transition hover:border-emerald-300">
               <input
                 type="checkbox"
                 checked={showUnknownPreviousCompanies}
@@ -257,10 +283,14 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                 </span>
               </span>
             </label>
-          </div>
+          </section>
 
-          <div className="grid items-start gap-5 border-t pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="grid items-start gap-5 border-t border-slate-200/80 pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="grid gap-3 self-start">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950">Advanced filters</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Refine title matching without changing the company-level search logic.</p>
+              </div>
               <div className="grid gap-3 sm:grid-cols-[1fr_260px] sm:items-start">
                 <div>
                   <Label htmlFor="customTitleKeywords">Custom title keywords</Label>
@@ -276,7 +306,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     setTitleFilterMode(nextValue);
                     updateDraft({ titleFilterMode: nextValue });
                   }}
-                  className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:mt-0"
+                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20 sm:mt-0"
                 >
                   {titleFilterModeOptions.map((option) => (
                     <option key={option} value={option}>
@@ -293,12 +323,12 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                   setCustomTitleKeywords(event.target.value);
                   updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
                 }}
-                className="min-h-32"
+                className="min-h-32 rounded-xl border-slate-200 bg-white"
               />
             </div>
 
             <aside className="grid gap-4">
-              <div className="grid gap-3 rounded-lg border bg-background p-4">
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <label className="flex items-start gap-3 text-sm">
                   <input
                     type="checkbox"
@@ -310,7 +340,10 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     className="mt-1 h-4 w-4 accent-primary"
                   />
                   <span>
-                    <span className="block font-medium">Boost MIDAS mentions</span>
+                    <span className="flex items-center gap-2 font-medium">
+                      <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
+                      Boost MIDAS mentions
+                    </span>
                     <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                       Adds relevance points when Lusha profile fields mention MIDAS skills or tools.
                     </span>
@@ -318,9 +351,12 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                 </label>
               </div>
 
-              <div className="grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
                 <div>
-                  <Label htmlFor="maxSignalLookups">Credit guard</Label>
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-amber-800" aria-hidden="true" />
+                    <Label htmlFor="maxSignalLookups">Credit guard</Label>
+                  </div>
                   <p className="mt-1 text-xs leading-5 text-amber-900">
                     Keep this low while testing live Lusha searches.
                   </p>
@@ -333,7 +369,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     setMaxSignalLookups(nextValue);
                     updateDraft({ maxSignalLookups: nextValue });
                   }}
-                  className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm outline-none transition-all hover:border-amber-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
                 >
                   {signalLookupLimitOptions.map((limit) => (
                     <option key={limit} value={limit}>
@@ -344,7 +380,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               </div>
 
               {showManualApiKeyInput ? (
-                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex items-center gap-2">
                     <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
                     <div>
@@ -371,10 +407,10 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                 </div>
               ) : null}
             </aside>
-          </div>
+          </section>
 
-          <div className="flex justify-start border-t pt-5">
-            <Button type="submit" disabled={loading} className="w-full sm:w-fit">
+          <div className="flex justify-start border-t border-slate-200/80 pt-5">
+            <Button type="submit" disabled={loading} className="h-11 w-full px-5 sm:w-fit">
               <Search className="h-4 w-4" aria-hidden="true" />
               {loading ? "Searching Lusha signals..." : "Find job changes"}
             </Button>

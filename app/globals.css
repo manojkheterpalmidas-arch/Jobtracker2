@@ -3,24 +3,24 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 20% 98%;
-  --foreground: 215 28% 17%;
+  --background: 210 28% 97%;
+  --foreground: 218 38% 13%;
   --card: 0 0% 100%;
-  --card-foreground: 215 28% 17%;
-  --primary: 168 56% 23%;
+  --card-foreground: 218 38% 13%;
+  --primary: 170 58% 22%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 204 26% 93%;
-  --secondary-foreground: 215 28% 17%;
-  --muted: 210 22% 94%;
-  --muted-foreground: 215 13% 43%;
+  --secondary: 210 30% 95%;
+  --secondary-foreground: 218 38% 13%;
+  --muted: 210 28% 95%;
+  --muted-foreground: 215 16% 42%;
   --accent: 38 82% 54%;
-  --accent-foreground: 215 28% 17%;
+  --accent-foreground: 218 38% 13%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --border: 214 18% 86%;
-  --input: 214 18% 86%;
-  --ring: 168 56% 23%;
-  --radius: 0.5rem;
+  --border: 214 22% 86%;
+  --input: 214 22% 86%;
+  --ring: 170 58% 22%;
+  --radius: 0.875rem;
 }
 
 * {
@@ -29,9 +29,10 @@
 
 body {
   background:
-    linear-gradient(180deg, rgba(244, 247, 249, 0.96), rgba(250, 251, 252, 1)),
-    radial-gradient(circle at top left, rgba(16, 126, 112, 0.08), transparent 34%);
+    linear-gradient(180deg, rgba(239, 244, 247, 0.96), rgba(248, 250, 252, 1) 36%, rgba(248, 250, 252, 1)),
+    radial-gradient(circle at 18% 0%, rgba(14, 116, 103, 0.12), transparent 34%);
   color: hsl(var(--foreground));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 ::selection {

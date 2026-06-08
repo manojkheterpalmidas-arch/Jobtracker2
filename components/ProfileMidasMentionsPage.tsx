@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AlertTriangle, KeyRound, Search } from "lucide-react";
+import { AlertTriangle, Gauge, KeyRound, Loader2, Search, Target, Users } from "lucide-react";
 import {
   profileMentionContactLimitOptions,
   profileMentionDisciplineLabels,
@@ -180,19 +180,31 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
 
   return (
     <div className="grid gap-5">
-      <Card>
-        <CardHeader>
-          <CardTitle>Decision Maker Finder</CardTitle>
-          <CardDescription>
-            Find senior engineering contacts at the target company who could influence or champion engineering software decisions.
-          </CardDescription>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-slate-200/80 bg-white pb-5">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl bg-primary/10 p-2 text-primary">
+              <Target className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <CardTitle className="text-lg">Decision Maker Finder</CardTitle>
+              <CardDescription className="mt-2">
+                Find senior engineering contacts at the target company who could influence or champion engineering software decisions.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <form className="grid gap-5" onSubmit={handleSubmit}>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <CardContent className="p-6">
+          <form className="grid gap-6" onSubmit={handleSubmit}>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               This searches current contacts at the target company and ranks likely decision makers by seniority and engineering role. Keep the contact limit low while testing live Lusha searches.
             </div>
 
+            <section className="grid gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950">Target account</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Company domain is preferred; name is used as display/fallback context.</p>
+              </div>
             <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <div className="grid gap-2">
                 <Label htmlFor="profileCompanyDomain">Target company domain</Label>
@@ -209,7 +221,13 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                 }} placeholder="WSP" className="h-12" />
               </div>
             </div>
+            </section>
 
+            <section className="grid gap-4 border-t border-slate-200/80 pt-5">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950">Search parameters</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Control target geography, discipline, and contact volume.</p>
+              </div>
             <div className="grid gap-4 lg:grid-cols-3">
               <div className="grid gap-2">
                 <Label htmlFor="profileLocation">Location / city or country</Label>
@@ -227,7 +245,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   const nextValue = event.target.value as ProfileMentionDiscipline;
                   setDiscipline(nextValue);
                   updateDraft({ discipline: nextValue });
-                }} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                }} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20">
                   {profileMentionDisciplineOptions.map((option) => (
                     <option key={option} value={option}>{profileMentionDisciplineLabels[option]}</option>
                   ))}
@@ -239,21 +257,25 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   const nextValue = Number(event.target.value) as ProfileMentionContactLimit;
                   setMaxContactsToCheck(nextValue);
                   updateDraft({ maxContactsToCheck: nextValue });
-                }} className="h-11 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                }} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20">
                   {profileMentionContactLimitOptions.map((limit) => (
                     <option key={limit} value={limit}>Check max {limit}</option>
                   ))}
                 </select>
               </div>
             </div>
+            </section>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <section className="grid gap-4 border-t border-slate-200/80 pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label>Seniority</Label>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+                    <Label>Seniority</Label>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {seniorityOptions.map((option) => (
-                      <label key={option} className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+                      <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition hover:border-slate-300">
                         <input type="checkbox" checked={seniority.includes(option)} onChange={() => toggleSeniority(option)} className="h-4 w-4 accent-primary" />
                         {option}
                       </label>
@@ -265,7 +287,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => {
                     setCustomTitleKeywords(event.target.value);
                     updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
-                  }} placeholder="One per line or comma separated" className="min-h-24" />
+                  }} placeholder="One per line or comma separated" className="min-h-24 rounded-xl border-slate-200 bg-white" />
                   <p className="text-xs text-muted-foreground">
                     Add titles like Managing Director, Founder, Owner, Partner, Discipline Lead, or Regional Director if needed.
                   </p>
@@ -273,7 +295,14 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
               </div>
 
               <aside className="grid content-start gap-4">
-                <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+                <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-amber-800" aria-hidden="true" />
+                    <p className="text-sm font-medium text-amber-950">Contact limit</p>
+                  </div>
+                  <p className="text-xs leading-5 text-amber-900">Keep this controlled while testing live Lusha searches.</p>
+                </div>
+                <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex items-center gap-2">
                     <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
                     <p className="text-sm font-medium">Lusha API key</p>
@@ -284,10 +313,10 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   }} placeholder="Paste key for this browser session" />
                 </div>
               </aside>
-            </div>
+            </section>
 
-            <div className="flex justify-start border-t pt-5">
-              <Button type="submit" disabled={loading} className="w-full sm:w-fit">
+            <div className="flex justify-start border-t border-slate-200/80 pt-5">
+              <Button type="submit" disabled={loading} className="h-11 w-full px-5 sm:w-fit">
                 <Search className="h-4 w-4" aria-hidden="true" />
                 {loading ? "Finding decision makers..." : "Find decision makers"}
               </Button>
@@ -304,7 +333,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
           ["Medium-fit contacts", response?.summary.mediumConfidence ?? 0],
           ["Credits/API calls", `${response?.summary.creditsUsed ?? 0} / ${response?.summary.apiCallsUsed ?? 0}`]
         ].map(([label, value]) => (
-          <Card key={label}>
+          <Card key={label} className="bg-white">
             <CardContent className="p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
               <p className="mt-2 text-2xl font-semibold">{value}</p>
@@ -314,7 +343,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4" aria-hidden="true" />
             <div>
@@ -326,7 +355,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       ) : null}
 
       {response?.warnings.length ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-semibold">Search notes</p>
           <ul className="mt-1 list-inside list-disc space-y-1">
             {response.warnings.map((warning) => <li key={warning}>{warning}</li>)}
@@ -335,16 +364,26 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       ) : null}
 
       {response?.storage?.status === "saved" ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           <p className="font-semibold">Saved to Supabase</p>
           <p>{response.storage.id ? `Search run ID: ${response.storage.id}` : "Decision-maker search saved."}</p>
         </div>
       ) : null}
 
       {response?.storage?.status === "failed" ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-semibold">Search completed, but was not saved</p>
           <p>{response.storage.message || "Check Supabase environment variables and the search_runs table."}</p>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="flex min-h-60 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-subtle">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+            <p className="mt-3 text-sm font-semibold">Finding senior engineering decision makers</p>
+            <p className="mt-1 text-xs text-muted-foreground">The app is checking current contacts and ranking role fit.</p>
+          </div>
         </div>
       ) : null}
 

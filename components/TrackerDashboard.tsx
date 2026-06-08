@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Database, Loader2, X } from "lucide-react";
+import { AlertTriangle, BriefcaseBusiness, Database, History, Loader2, LockKeyhole, Server, ShieldCheck, Sparkles, Target, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChampionResultsTable } from "@/components/ChampionResultsTable";
 import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
@@ -319,28 +319,49 @@ export function TrackerDashboard() {
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-6">
-        <header className="grid gap-3 border-b pb-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
+      <div className="mx-auto grid max-w-[1480px] gap-6">
+        <header className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-panel">
+          <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-8">
+            <div className="max-w-4xl">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <Badge variant="success" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  Sales intelligence
+                </Badge>
+                {response?.summary.mockMode ? <Badge variant="warning">Mock data</Badge> : null}
+              </div>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
                 MIDAS Champion Migration Finder
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Find people who recently joined target companies from known MIDAS accounts, then prioritize likely MIDAS-aware champions for professional follow-up.
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
+                Identify engineers who recently joined target accounts and prioritize likely MIDAS-aware champions for professional follow-up.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => setSavedPanelOpen(true)}>
-                <Database className="h-4 w-4" aria-hidden="true" />
+            <div className="flex flex-wrap items-start justify-start gap-2 lg:justify-end">
+              <Button type="button" variant="outline" onClick={() => setSavedPanelOpen(true)} className="h-11">
+                <History className="h-4 w-4" aria-hidden="true" />
                 Saved searches
                 {history?.runs?.length ? (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">{history.runs.length}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{history.runs.length}</span>
                 ) : null}
               </Button>
               <Badge variant="success">Domain-first</Badge>
               <Badge variant="muted">Server-side Lusha calls</Badge>
-              {response?.summary.mockMode ? <Badge variant="warning">Mock data</Badge> : null}
+              <Badge variant="muted">Admin controlled</Badge>
+            </div>
+          </div>
+          <div className="grid gap-3 border-t border-slate-200/80 bg-slate-50/80 px-6 py-3 text-xs text-slate-600 sm:grid-cols-3 lg:px-8">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+              Search mode: Domain-first
+            </div>
+            <div className="flex items-center gap-2">
+              <Server className="h-4 w-4 text-primary" aria-hidden="true" />
+              Source: Lusha via server routes
+            </div>
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-primary" aria-hidden="true" />
+              Matching: MIDAS account database
             </div>
           </div>
         </header>
@@ -353,7 +374,7 @@ export function TrackerDashboard() {
               aria-label="Dismiss saved searches overlay"
               onClick={() => setSavedPanelOpen(false)}
             />
-            <aside className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto border-l bg-background p-4 shadow-2xl">
+            <aside className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto border-l bg-background p-5 shadow-2xl">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-muted-foreground">Saved search history</p>
                 <Button
@@ -379,27 +400,32 @@ export function TrackerDashboard() {
         ) : null}
 
         <div className="grid content-start gap-6">
-          <nav className="flex flex-wrap gap-2">
+          <nav className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-subtle">
             <Button
               type="button"
               variant={activeTab === "jobChanges" ? "default" : "outline"}
               onClick={() => setActiveTab("jobChanges")}
+              className="h-11"
             >
+              <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
               Job Changes
             </Button>
             <Button
               type="button"
               variant={activeTab === "profile" ? "default" : "outline"}
               onClick={() => setActiveTab("profile")}
+              className="h-11"
             >
+              <Target className="h-4 w-4" aria-hidden="true" />
               Decision Makers
             </Button>
             <Button
               type="button"
               variant={activeTab === "accounts" ? "default" : "ghost"}
               onClick={() => setActiveTab("accounts")}
-              className="ml-auto"
+              className="ml-auto h-11"
             >
+              <LockKeyhole className="h-4 w-4" aria-hidden="true" />
               Admin: MIDAS Account Database
             </Button>
           </nav>
@@ -425,10 +451,10 @@ export function TrackerDashboard() {
             <SummaryCards summary={response?.summary} />
 
             {loading ? (
-              <div className="flex min-h-72 items-center justify-center rounded-lg border bg-card shadow-subtle">
+              <div className="flex min-h-72 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-subtle">
                 <div className="text-center">
                   <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-                  <p className="mt-3 text-sm font-medium">Checking contacts and companyChange signals</p>
+                  <p className="mt-3 text-sm font-semibold">Searching job changes and matching against MIDAS accounts</p>
                   <p className="mt-1 text-xs text-muted-foreground">This may use Lusha prospecting and signal credits in live mode.</p>
                 </div>
               </div>
@@ -477,7 +503,7 @@ export function TrackerDashboard() {
             ) : null}
 
             {!loading && !error && !response ? (
-              <div className="rounded-lg border bg-card p-10 text-center shadow-subtle">
+              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-subtle">
                 <Database className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
                 <p className="mt-3 text-base font-semibold">Ready to search</p>
                 <p className="mt-2 text-sm text-muted-foreground">

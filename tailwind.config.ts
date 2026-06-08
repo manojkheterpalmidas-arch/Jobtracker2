@@ -46,7 +46,8 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)"
       },
       boxShadow: {
-        subtle: "0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04)"
+        subtle: "0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 28px rgba(15, 23, 42, 0.055)",
+        panel: "0 1px 2px rgba(15, 23, 42, 0.06), 0 18px 55px rgba(15, 23, 42, 0.08)"
       }
     }
   },

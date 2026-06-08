@@ -143,8 +143,8 @@ export function MidasAccountDatabase() {
 
   if (!unlocked) {
     return (
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-slate-200/80 bg-white">
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" aria-hidden="true" />
             <CardTitle>MIDAS Account Database</CardTitle>
@@ -172,8 +172,8 @@ export function MidasAccountDatabase() {
 
   return (
     <div className="grid gap-5">
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-slate-200/80 bg-white">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export function MidasAccountDatabase() {
               ["Partners", stats?.partners ?? 0],
               ["Countries", stats?.countriesCovered ?? 0]
             ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border bg-muted/30 p-3">
+              <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                 <p className="text-xs uppercase text-muted-foreground">{label}</p>
                 <p className="mt-1 text-2xl font-semibold">{value}</p>
               </div>
@@ -219,7 +219,7 @@ export function MidasAccountDatabase() {
             <select
               value={relationshipStatus}
               onChange={(event) => setRelationshipStatus(event.target.value)}
-              className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
             >
               <option value="">All statuses</option>
               {relationshipStatusOptions.map((status) => (
@@ -233,15 +233,15 @@ export function MidasAccountDatabase() {
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-slate-200/80 bg-white">
             <CardTitle>Companies</CardTitle>
             <CardDescription>{loading ? "Loading..." : `${data?.accounts.length ?? 0} records shown`}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="min-w-[840px] text-left text-sm">
-                <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-3">Company</th>
                     <th className="px-4 py-3">Domain</th>
@@ -253,7 +253,7 @@ export function MidasAccountDatabase() {
                 </thead>
                 <tbody className="divide-y">
                   {data?.accounts.map((account) => (
-                    <tr key={account.id} className="align-top hover:bg-muted/30">
+                    <tr key={account.id} className="align-top transition hover:bg-slate-50/80">
                       <td className="px-4 py-3 font-medium">{account.companyName}</td>
                       <td className="px-4 py-3 text-muted-foreground">{account.companyDomain || "-"}</td>
                       <td className="px-4 py-3">{account.country}</td>
