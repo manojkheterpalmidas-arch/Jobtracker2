@@ -2,6 +2,7 @@
 
 import { Check, Clipboard, Download, ExternalLink } from "lucide-react";
 import { useMemo, useState } from "react";
+import { RevealContactDetails } from "@/components/RevealContactDetails";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +92,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[1180px] text-left text-sm">
+        <table className="min-w-[1320px] text-left text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -99,6 +100,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
               <th className="px-4 py-3">Current title</th>
               <th className="px-4 py-3">Location</th>
               <th className="px-4 py-3">LinkedIn</th>
+              <th className="px-4 py-3">Contact details</th>
               <th className="px-4 py-3">Seniority signals</th>
               <th className="px-4 py-3">Role signals</th>
               <th className="px-4 py-3">Score</th>
@@ -121,6 +123,9 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
                       <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                     </a>
                   ) : "-"}
+                </td>
+                <td className="px-4 py-3">
+                  <RevealContactDetails contactId={record.lushaContactId} />
                 </td>
                 <td className="px-4 py-3">{record.senioritySignals.join(", ") || "-"}</td>
                 <td className="px-4 py-3">{record.roleSignals.join(", ") || "-"}</td>

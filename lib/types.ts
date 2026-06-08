@@ -255,6 +255,17 @@ export interface LushaContact {
   tags?: string[];
 }
 
+export type ContactRevealField = "emails" | "phones";
+
+export interface RevealedContactDetails {
+  contactId: string;
+  emails: string[];
+  phones: string[];
+  creditsUsed?: number;
+  apiCallsUsed: number;
+  source: "Lusha";
+}
+
 export interface LushaSignal {
   id?: string;
   type?: string;

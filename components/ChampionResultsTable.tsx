@@ -2,6 +2,7 @@
 
 import { Check, Clipboard, Download, ExternalLink } from "lucide-react";
 import { useState } from "react";
+import { RevealContactDetails } from "@/components/RevealContactDetails";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ChampionContactJobChange, ChampionPotential, MidasRelationshipStatus } from "@/lib/types";
@@ -59,7 +60,7 @@ export function ChampionResultsTable({ results, onExportCsv }: ChampionResultsTa
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[1480px] text-left text-sm">
+        <table className="min-w-[1640px] text-left text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
@@ -74,6 +75,7 @@ export function ChampionResultsTable({ results, onExportCsv }: ChampionResultsTa
               <th className="px-4 py-3">Reason</th>
               <th className="px-4 py-3">Suggested action</th>
               <th className="px-4 py-3">LinkedIn</th>
+              <th className="px-4 py-3">Contact details</th>
               <th className="px-4 py-3">Message</th>
             </tr>
           </thead>
@@ -119,6 +121,9 @@ export function ChampionResultsTable({ results, onExportCsv }: ChampionResultsTa
                   ) : (
                     "-"
                   )}
+                </td>
+                <td className="px-4 py-3">
+                  <RevealContactDetails contactId={record.lushaContactId} />
                 </td>
                 <td className="px-4 py-3">
                   <Button type="button" size="sm" variant="outline" onClick={() => copyMessage(record)}>

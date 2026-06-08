@@ -10,6 +10,7 @@ import {
 } from "@/lib/scoring";
 import {
   defaultTitleKeywords,
+  type ContactRevealField,
   type ContactJobChange,
   type LushaContact,
   type LushaSignal,
@@ -17,6 +18,7 @@ import {
   type MovementDirection,
   type ProfileMidasMentionRequest,
   type ProfileMidasMentionResponse,
+  type RevealedContactDetails,
   type SearchRequest,
   type SearchResponse
 } from "@/lib/types";
@@ -270,6 +272,82 @@ function safeJsonParse(text: string) {
   } catch {
     return undefined;
   }
+}
+
+function textValue(value: unknown) {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["email", "value", "address", "phone", "number", "rawNumber", "internationalNumber"]) {
+      const candidate = record[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    }
+  }
+  return "";
+}
+
+function collectStringValues(...values: unknown[]) {
+  const flattened = values.flatMap((value) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  });
+
+  return Array.from(new Set(flattened.map(textValue).filter(Boolean)));
+}
+
+function firstContactLike(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") return {};
+
+  const record = value as Record<string, unknown>;
+  const arrayCandidates = [
+    record.contacts,
+    record.results,
+    record.data,
+    record.items
+  ];
+
+  for (const candidate of arrayCandidates) {
+    if (Array.isArray(candidate) && candidate[0] && typeof candidate[0] === "object") {
+      return candidate[0] as Record<string, unknown>;
+    }
+  }
+
+  for (const key of ["contact", "person", "profile"]) {
+    const candidate = record[key];
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+      return candidate as Record<string, unknown>;
+    }
+  }
+
+  return record;
+}
+
+export async function revealContactDetails(params: {
+  contactId: string;
+  reveal: ContactRevealField[];
+  localLushaApiKey?: string;
+}): Promise<RevealedContactDetails> {
+  const data = await lushaFetch<Record<string, unknown>>("/v3/contacts/enrich", {
+    method: "POST",
+    body: JSON.stringify({
+      ids: [params.contactId],
+      reveal: params.reveal
+    })
+  }, params.localLushaApiKey);
+
+  const contact = firstContactLike(data);
+  const emails = collectStringValues(contact.emails, contact.email, contact.workEmail, contact.emailAddresses);
+  const phones = collectStringValues(contact.phones, contact.phoneNumbers, contact.phone, contact.mobilePhone, contact.directDial);
+  const billing = data.billing && typeof data.billing === "object" ? data.billing as LushaBilling : undefined;
+
+  return {
+    contactId: params.contactId,
+    emails,
+    phones,
+    creditsUsed: billing?.creditsCharged,
+    apiCallsUsed: 1,
+    source: "Lusha"
+  };
 }
 
 function selectedTitleKeywords(request: SearchRequest) {
