@@ -142,7 +142,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               <h3 className="text-sm font-semibold text-slate-950">Target account</h3>
               <p className="mt-1 text-xs text-muted-foreground">Use the company domain whenever possible for cleaner account matching.</p>
             </div>
-          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="grid gap-2">
               <Label htmlFor="companyDomain">Company domain</Label>
               <Input
@@ -184,7 +184,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               <h3 className="text-sm font-semibold text-slate-950">Search parameters</h3>
               <p className="mt-1 text-xs text-muted-foreground">Control the geography, time window, and engineering discipline.</p>
             </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid max-w-6xl gap-4 lg:grid-cols-3">
             <div className="grid gap-2">
               <Label htmlFor="location">Location / city or country</Label>
               <Input
@@ -285,50 +285,52 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
             </label>
           </section>
 
-          <section className="grid items-start gap-5 border-t border-slate-200/80 pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="grid gap-3 self-start">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-950">Advanced filters</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Refine title matching without changing the company-level search logic.</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-[1fr_260px] sm:items-start">
-                <div>
-                  <Label htmlFor="customTitleKeywords">Custom title keywords</Label>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Leave blank for defaults. Use no title filter if Lusha stores titles differently.
-                  </p>
-                </div>
-                <select
-                  id="titleFilterMode"
-                  value={titleFilterMode}
-                  onChange={(event) => {
-                    const nextValue = event.target.value as TitleFilterMode;
-                    setTitleFilterMode(nextValue);
-                    updateDraft({ titleFilterMode: nextValue });
-                  }}
-                  className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20 sm:mt-0"
-                >
-                  {titleFilterModeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {titleFilterModeLabels[option]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Textarea
-                id="customTitleKeywords"
-                placeholder="One per line or comma separated"
-                value={customTitleKeywords}
-                onChange={(event) => {
-                  setCustomTitleKeywords(event.target.value);
-                  updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
-                }}
-                className="min-h-32 rounded-xl border-slate-200 bg-white"
-              />
+          <section className="grid gap-4 border-t border-slate-200/80 pt-5">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-950">Advanced filters</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Refine title matching, MIDAS boost, and credit controls without changing the account search logic.</p>
             </div>
 
-            <aside className="grid gap-4">
-              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid max-w-6xl gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+              <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+                <div className="grid gap-3 md:grid-cols-[1fr_260px] md:items-start">
+                  <div>
+                    <Label htmlFor="customTitleKeywords">Custom title keywords</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Leave blank for defaults. Use no title filter if Lusha stores titles differently.
+                    </p>
+                  </div>
+                  <select
+                    id="titleFilterMode"
+                    value={titleFilterMode}
+                    onChange={(event) => {
+                      const nextValue = event.target.value as TitleFilterMode;
+                      setTitleFilterMode(nextValue);
+                      updateDraft({ titleFilterMode: nextValue });
+                    }}
+                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
+                  >
+                    {titleFilterModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {titleFilterModeLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Textarea
+                  id="customTitleKeywords"
+                  placeholder="One per line or comma separated"
+                  value={customTitleKeywords}
+                  onChange={(event) => {
+                    setCustomTitleKeywords(event.target.value);
+                    updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
+                  }}
+                  className="min-h-24 rounded-xl border-slate-200 bg-white"
+                />
+              </div>
+
+              <aside className="grid gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <label className="flex items-start gap-3 text-sm">
                   <input
                     type="checkbox"
@@ -352,7 +354,8 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               </div>
 
               <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
                   <div className="flex items-center gap-2">
                     <Gauge className="h-4 w-4 text-amber-800" aria-hidden="true" />
                     <Label htmlFor="maxSignalLookups">Credit guard</Label>
@@ -369,7 +372,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     setMaxSignalLookups(nextValue);
                     updateDraft({ maxSignalLookups: nextValue });
                   }}
-                  className="h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm outline-none transition-all hover:border-amber-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
+                  className="h-10 min-w-32 rounded-lg border border-amber-200 bg-white px-3 text-sm outline-none transition-all hover:border-amber-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
                 >
                   {signalLookupLimitOptions.map((limit) => (
                     <option key={limit} value={limit}>
@@ -377,6 +380,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     </option>
                   ))}
                 </select>
+              </div>
               </div>
 
               {showManualApiKeyInput ? (
@@ -407,9 +411,10 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                 </div>
               ) : null}
             </aside>
+            </div>
           </section>
 
-          <div className="flex justify-start border-t border-slate-200/80 pt-5">
+          <div className="-mx-6 -mb-6 flex justify-start border-t border-slate-200/80 bg-slate-50/70 px-6 py-4">
             <Button type="submit" disabled={loading} className="h-11 w-full px-5 sm:w-fit">
               <Search className="h-4 w-4" aria-hidden="true" />
               {loading ? "Searching Lusha signals..." : "Find job changes"}

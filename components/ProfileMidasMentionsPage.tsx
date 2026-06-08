@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { AlertTriangle, Gauge, KeyRound, Loader2, Search, Target, Users } from "lucide-react";
+import { AlertTriangle, KeyRound, Loader2, Search, Target, Users } from "lucide-react";
 import {
   profileMentionContactLimitOptions,
   profileMentionDisciplineLabels,
@@ -205,7 +205,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                 <h3 className="text-sm font-semibold text-slate-950">Target account</h3>
                 <p className="mt-1 text-xs text-muted-foreground">Company domain is preferred; name is used as display/fallback context.</p>
               </div>
-            <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="grid gap-2">
                 <Label htmlFor="profileCompanyDomain">Target company domain</Label>
                 <Input id="profileCompanyDomain" value={companyDomain} onChange={(event) => {
@@ -228,7 +228,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                 <h3 className="text-sm font-semibold text-slate-950">Search parameters</h3>
                 <p className="mt-1 text-xs text-muted-foreground">Control target geography, discipline, and contact volume.</p>
               </div>
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid max-w-6xl gap-4 lg:grid-cols-3">
               <div className="grid gap-2">
                 <Label htmlFor="profileLocation">Location / city or country</Label>
                 <Input id="profileLocation" value={location} onChange={(event) => {
@@ -266,8 +266,14 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
             </div>
             </section>
 
-            <section className="grid gap-4 border-t border-slate-200/80 pt-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="grid gap-4">
+            <section className="grid gap-4 border-t border-slate-200/80 pt-5">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950">Advanced filters</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Refine decision-maker matching while keeping contact checks controlled.</p>
+              </div>
+
+              <div className="grid max-w-6xl gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+              <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
                 <div className="grid gap-2">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -294,14 +300,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                 </div>
               </div>
 
-              <aside className="grid content-start gap-4">
-                <div className="grid gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Gauge className="h-4 w-4 text-amber-800" aria-hidden="true" />
-                    <p className="text-sm font-medium text-amber-950">Contact limit</p>
-                  </div>
-                  <p className="text-xs leading-5 text-amber-900">Keep this controlled while testing live Lusha searches.</p>
-                </div>
+              <aside className="grid content-start gap-3">
                 <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
                   <div className="flex items-center gap-2">
                     <KeyRound className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -313,9 +312,10 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   }} placeholder="Paste key for this browser session" />
                 </div>
               </aside>
+              </div>
             </section>
 
-            <div className="flex justify-start border-t border-slate-200/80 pt-5">
+            <div className="-mx-6 -mb-6 flex justify-start border-t border-slate-200/80 bg-slate-50/70 px-6 py-4">
               <Button type="submit" disabled={loading} className="h-11 w-full px-5 sm:w-fit">
                 <Search className="h-4 w-4" aria-hidden="true" />
                 {loading ? "Finding decision makers..." : "Find decision makers"}
