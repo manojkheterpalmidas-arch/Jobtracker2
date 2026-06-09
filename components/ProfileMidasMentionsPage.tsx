@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, KeyRound, Loader2, Search, Target, Users } from "lucide-react";
 import {
   profileMentionContactLimitOptions,
@@ -186,12 +186,12 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     URL.revokeObjectURL(url);
   }
 
-  function handleRevealedContactDetailsChange(details: RevealedContactDetails) {
+  const handleRevealedContactDetailsChange = useCallback((details: RevealedContactDetails) => {
     setRevealedContactDetails((current) => ({
       ...current,
       [details.contactId]: details
     }));
-  }
+  }, []);
 
   return (
     <div className="grid gap-5">

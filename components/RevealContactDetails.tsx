@@ -29,6 +29,36 @@ export function RevealContactDetails({ contactId, initialDetails, onDetailsChang
     setDetails(initialDetails ?? null);
   }, [initialDetails]);
 
+  useEffect(() => {
+    if (!contactId) return;
+
+    let cancelled = false;
+    const currentContactId = contactId;
+
+    async function loadStoredDetails() {
+      try {
+        const response = await fetch(`/api/reveal-contact-details?contactId=${encodeURIComponent(currentContactId)}`, {
+          method: "GET",
+          cache: "no-store"
+        });
+        const data = await response.json() as RevealResponse;
+
+        if (!cancelled && response.ok && data.details) {
+          setDetails(data.details);
+          onDetailsChange?.(data.details);
+        }
+      } catch {
+        // Stored details are an enhancement; reveal buttons still work if loading fails.
+      }
+    }
+
+    void loadStoredDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contactId, onDetailsChange]);
+
   async function reveal(field: ContactRevealField) {
     if (!contactId) return;
 

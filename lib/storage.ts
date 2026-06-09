@@ -1,4 +1,6 @@
 import type {
+  ContactRevealField,
+  RevealedContactDetails,
   SavedSearchRun,
   SavedSearchRunDetail,
   SavedSearchRunDetailResponse,
@@ -28,6 +30,7 @@ type StoredSearchRun = {
 
 declare global {
   var lushaWebhookEvents: StoredWebhookEvent[] | undefined;
+  var revealedContactDetails: Record<string, RevealedContactDetails> | undefined;
   var searchRuns: StoredSearchRun[] | undefined;
 }
 
@@ -47,6 +50,14 @@ function getSearchRunStore() {
   return globalThis.searchRuns;
 }
 
+function getRevealedContactDetailsStore() {
+  if (!globalThis.revealedContactDetails) {
+    globalThis.revealedContactDetails = {};
+  }
+
+  return globalThis.revealedContactDetails;
+}
+
 function supabaseConfig() {
   const config = getServerSupabaseConfig();
 
@@ -58,6 +69,112 @@ function supabaseConfig() {
     url: config.url,
     serviceRoleKey: config.key
   };
+}
+
+function mergeUnique<T extends string>(first: T[] = [], second: T[] = []) {
+  return Array.from(new Set([...first, ...second].filter(Boolean)));
+}
+
+function mapRevealedContactDetails(row: Record<string, unknown>): RevealedContactDetails {
+  return {
+    contactId: String(row.contact_id),
+    emails: asStringArray(row.emails),
+    phones: asStringArray(row.phones),
+    revealedFields: asStringArray(row.revealed_fields).filter(
+      (field): field is ContactRevealField => field === "emails" || field === "phones"
+    ),
+    creditsUsed: typeof row.credits_used === "number" ? row.credits_used : undefined,
+    apiCallsUsed: Number(row.api_calls_used ?? 0),
+    source: "Lusha"
+  };
+}
+
+export async function getStoredRevealedContactDetails(contactId: string): Promise<RevealedContactDetails | undefined> {
+  const config = supabaseConfig();
+
+  if (!config) {
+    return getRevealedContactDetailsStore()[contactId];
+  }
+
+  const params = new URLSearchParams({
+    select: "*",
+    contact_id: `eq.${contactId}`,
+    limit: "1"
+  });
+
+  try {
+    const response = await fetch(`${config.url}/rest/v1/revealed_contact_details?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        apikey: config.serviceRoleKey,
+        Authorization: `Bearer ${config.serviceRoleKey}`
+      },
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const rows = (await response.json()) as Array<Record<string, unknown>>;
+    return rows[0] ? mapRevealedContactDetails(rows[0]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function storeRevealedContactDetails(details: RevealedContactDetails): Promise<RevealedContactDetails> {
+  const existing = await getStoredRevealedContactDetails(details.contactId);
+  const merged: RevealedContactDetails = {
+    contactId: details.contactId,
+    emails: mergeUnique(existing?.emails, details.emails),
+    phones: mergeUnique(existing?.phones, details.phones),
+    revealedFields: mergeUnique(existing?.revealedFields, details.revealedFields),
+    creditsUsed: (existing?.creditsUsed ?? 0) + (details.creditsUsed ?? 0),
+    apiCallsUsed: (existing?.apiCallsUsed ?? 0) + details.apiCallsUsed,
+    source: "Lusha"
+  };
+
+  const config = supabaseConfig();
+
+  if (!config) {
+    getRevealedContactDetailsStore()[details.contactId] = merged;
+    return merged;
+  }
+
+  try {
+    const response = await fetch(`${config.url}/rest/v1/revealed_contact_details?on_conflict=contact_id`, {
+      method: "POST",
+      headers: {
+        apikey: config.serviceRoleKey,
+        Authorization: `Bearer ${config.serviceRoleKey}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation"
+      },
+      body: JSON.stringify({
+        contact_id: merged.contactId,
+        emails: merged.emails,
+        phones: merged.phones,
+        revealed_fields: merged.revealedFields ?? [],
+        credits_used: merged.creditsUsed ?? 0,
+        api_calls_used: merged.apiCallsUsed,
+        source: merged.source,
+        updated_at: new Date().toISOString()
+      }),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      getRevealedContactDetailsStore()[details.contactId] = merged;
+      return merged;
+    }
+
+    const rows = (await response.json()) as Array<Record<string, unknown>>;
+    return rows[0] ? mapRevealedContactDetails(rows[0]) : merged;
+  } catch {
+    getRevealedContactDetailsStore()[details.contactId] = merged;
+    return merged;
+  }
 }
 
 function omitApiKey(request: SearchRequest): Omit<SearchRequest, "localLushaApiKey"> {

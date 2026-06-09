@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, AlertTriangle, BriefcaseBusiness, Database, History, Loader2, LockKeyhole, Server, ShieldCheck, Sparkles, Target, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChampionResultsTable } from "@/components/ChampionResultsTable";
 import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
 import { ProfileMidasMentionsPage } from "@/components/ProfileMidasMentionsPage";
@@ -338,12 +338,12 @@ export function TrackerDashboard() {
     }
   }
 
-  function handleRevealedContactDetailsChange(details: RevealedContactDetails) {
+  const handleRevealedContactDetailsChange = useCallback((details: RevealedContactDetails) => {
     setRevealedContactDetails((current) => ({
       ...current,
       [details.contactId]: details
     }));
-  }
+  }, []);
 
   const savedSearchCount = history?.runs?.length ?? 0;
   const jobChangeDisciplineLabel =

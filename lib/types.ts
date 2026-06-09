@@ -261,6 +261,7 @@ export interface RevealedContactDetails {
   contactId: string;
   emails: string[];
   phones: string[];
+  revealedFields?: ContactRevealField[];
   creditsUsed?: number;
   apiCallsUsed: number;
   source: "Lusha";
