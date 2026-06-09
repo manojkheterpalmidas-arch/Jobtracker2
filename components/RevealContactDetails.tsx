@@ -1,12 +1,14 @@
 "use client";
 
 import { Mail, Phone, ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ContactRevealField, RevealedContactDetails } from "@/lib/types";
 
 type RevealContactDetailsProps = {
   contactId?: string;
+  initialDetails?: RevealedContactDetails;
+  onDetailsChange?: (details: RevealedContactDetails) => void;
 };
 
 type RevealResponse = {
@@ -18,10 +20,14 @@ function mergeUnique(first: string[], second: string[]) {
   return Array.from(new Set([...first, ...second].filter(Boolean)));
 }
 
-export function RevealContactDetails({ contactId }: RevealContactDetailsProps) {
-  const [details, setDetails] = useState<RevealedContactDetails | null>(null);
+export function RevealContactDetails({ contactId, initialDetails, onDetailsChange }: RevealContactDetailsProps) {
+  const [details, setDetails] = useState<RevealedContactDetails | null>(initialDetails ?? null);
   const [loadingField, setLoadingField] = useState<ContactRevealField | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setDetails(initialDetails ?? null);
+  }, [initialDetails]);
 
   async function reveal(field: ContactRevealField) {
     if (!contactId) return;
@@ -53,14 +59,19 @@ export function RevealContactDetails({ contactId }: RevealContactDetailsProps) {
       const revealed = data.details;
 
       if (revealed) {
-        setDetails((current) => ({
-          contactId: revealed.contactId,
-          source: revealed.source,
-          emails: mergeUnique(current?.emails ?? [], revealed.emails),
-          phones: mergeUnique(current?.phones ?? [], revealed.phones),
-          creditsUsed: (current?.creditsUsed ?? 0) + (revealed.creditsUsed ?? 0),
-          apiCallsUsed: (current?.apiCallsUsed ?? 0) + revealed.apiCallsUsed
-        }));
+        setDetails((current) => {
+          const nextDetails = {
+            contactId: revealed.contactId,
+            source: revealed.source,
+            emails: mergeUnique(current?.emails ?? [], revealed.emails),
+            phones: mergeUnique(current?.phones ?? [], revealed.phones),
+            creditsUsed: (current?.creditsUsed ?? 0) + (revealed.creditsUsed ?? 0),
+            apiCallsUsed: (current?.apiCallsUsed ?? 0) + revealed.apiCallsUsed
+          };
+
+          onDetailsChange?.(nextDetails);
+          return nextDetails;
+        });
       }
     } catch (revealError) {
       setError(revealError instanceof Error ? revealError.message : "Could not reveal contact details.");

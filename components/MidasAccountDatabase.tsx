@@ -219,7 +219,7 @@ export function MidasAccountDatabase() {
             <select
               value={relationshipStatus}
               onChange={(event) => setRelationshipStatus(event.target.value)}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
+              className="select-control h-10"
             >
               <option value="">All statuses</option>
               {relationshipStatusOptions.map((status) => (

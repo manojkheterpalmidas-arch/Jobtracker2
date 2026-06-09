@@ -72,14 +72,14 @@ export function MidasAccountImport({ adminPasscode, onImported }: MidasAccountIm
           type="file"
           accept=".csv,.xlsx,.xls"
           onChange={handleFile}
-          className="rounded-md border bg-background px-3 py-2 text-sm"
+          className="file-control"
         />
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
         <select
           value={duplicateStrategy}
           onChange={(event) => setDuplicateStrategy(event.target.value as MidasDuplicateStrategy)}
-          className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="select-control h-10"
         >
           <option value="skip_duplicates">Skip duplicates</option>
           <option value="update_duplicates">Update duplicates</option>

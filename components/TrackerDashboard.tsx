@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, BriefcaseBusiness, Database, History, Loader2, LockKeyhole, Server, ShieldCheck, Sparkles, Target, X } from "lucide-react";
+import { Activity, AlertTriangle, BriefcaseBusiness, Database, History, Loader2, LockKeyhole, Server, ShieldCheck, Sparkles, Target, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ChampionResultsTable } from "@/components/ChampionResultsTable";
 import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
@@ -10,11 +10,14 @@ import { SavedSearches } from "@/components/SavedSearches";
 import { SummaryCards } from "@/components/SummaryCards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { disciplineLabels } from "@/lib/types";
 import type {
   ChampionContactJobChange,
+  Discipline,
   ProfileMidasMentionResponse,
   ProfileMidasMentionRequest,
   ProfileMidasMentionResult,
+  RevealedContactDetails,
   SavedSearchRunsResponse,
   SearchRequest,
   SearchResponse
@@ -30,7 +33,16 @@ function csvValue(value: unknown) {
   return `"${stringValue.replace(/"/g, '""')}"`;
 }
 
-function downloadCsv(response: SearchResponse) {
+function revealedCsvFields(record: SearchResponse["results"][number], revealedContactDetails: Record<string, RevealedContactDetails>) {
+  const details = record.lushaContactId ? revealedContactDetails[record.lushaContactId] : undefined;
+
+  return [
+    details?.emails.join("; ") ?? "",
+    details?.phones.join("; ") ?? ""
+  ];
+}
+
+function downloadCsv(response: SearchResponse, revealedContactDetails: Record<string, RevealedContactDetails>) {
   const championMode = response.results.some((record) => "championLikelihoodScore" in record);
   const headers = championMode ? [
     "Person name",
@@ -47,6 +59,8 @@ function downloadCsv(response: SearchResponse) {
     "Suggested action",
     "Suggested message",
     "LinkedIn URL",
+    "Revealed emails",
+    "Revealed phones",
     "Signal date"
   ] : [
     "Person name",
@@ -58,6 +72,8 @@ function downloadCsv(response: SearchResponse) {
     "New title",
     "Location",
     "LinkedIn URL",
+    "Revealed emails",
+    "Revealed phones",
     "Signal date",
     "Relevance score",
     "Priority level",
@@ -84,6 +100,7 @@ function downloadCsv(response: SearchResponse) {
         record.suggestedSalesAction,
         record.suggestedMessage,
         record.linkedinUrl,
+        ...revealedCsvFields(record, revealedContactDetails),
         record.signalDate
       ];
     }
@@ -98,6 +115,7 @@ function downloadCsv(response: SearchResponse) {
       record.newTitle,
       record.location,
       record.linkedinUrl,
+      ...revealedCsvFields(record, revealedContactDetails),
       record.signalDate,
       record.relevanceScore,
       record.priorityLevel,
@@ -137,6 +155,7 @@ export function TrackerDashboard() {
   const [activeTab, setActiveTab] = useState<"jobChanges" | "profile" | "accounts">("jobChanges");
   const [loadedRequest, setLoadedRequest] = useState<SharedSearchDraft | null>(null);
   const [profileMentionResponse, setProfileMentionResponse] = useState<ProfileMidasMentionResponse | null>(null);
+  const [revealedContactDetails, setRevealedContactDetails] = useState<Record<string, RevealedContactDetails>>({});
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory() {
@@ -173,6 +192,7 @@ export function TrackerDashboard() {
     setError(null);
     setLoadedRequest(payload);
     setProfileMentionResponse(null);
+    setRevealedContactDetails({});
 
     try {
       const result = await fetch("/api/search-champions", {
@@ -200,6 +220,7 @@ export function TrackerDashboard() {
   async function handleViewSavedResults(id: string) {
     setLoadingRunId(id);
     setError(null);
+    setRevealedContactDetails({});
 
     try {
       const result = await fetch(`/api/search-runs?id=${encodeURIComponent(id)}`, {
@@ -317,40 +338,69 @@ export function TrackerDashboard() {
     }
   }
 
+  function handleRevealedContactDetailsChange(details: RevealedContactDetails) {
+    setRevealedContactDetails((current) => ({
+      ...current,
+      [details.contactId]: details
+    }));
+  }
+
+  const savedSearchCount = history?.runs?.length ?? 0;
+  const jobChangeDisciplineLabel =
+    loadedRequest?.discipline && loadedRequest.discipline in disciplineLabels
+      ? disciplineLabels[loadedRequest.discipline as Discipline]
+      : undefined;
+
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-[1480px] gap-6">
-        <header className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-panel">
-          <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-8">
-            <div className="max-w-4xl">
+    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto grid min-w-0 max-w-[1480px] gap-5">
+        <header className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-panel">
+          <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] lg:p-7">
+            <div className="min-w-0 max-w-4xl">
               <div className="mb-4 flex flex-wrap items-center gap-2">
-                <Badge variant="success" className="gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                  Sales intelligence
-                </Badge>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-primary">
+                  <Sparkles className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <Badge variant="success">Internal sales intelligence</Badge>
                 {response?.summary.mockMode ? <Badge variant="warning">Mock data</Badge> : null}
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              <h1 className="max-w-full break-words text-2xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-4xl">
                 MIDAS Champion Migration Finder
               </h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
-                Identify engineers who recently joined target accounts and prioritize likely MIDAS-aware champions for professional follow-up.
+                Identify engineers who recently joined target accounts and prioritize likely MIDAS-aware champions.
               </p>
             </div>
-            <div className="flex flex-wrap items-start justify-start gap-2 lg:justify-end">
-              <Button type="button" variant="outline" onClick={() => setSavedPanelOpen(true)} className="h-11">
-                <History className="h-4 w-4" aria-hidden="true" />
-                Saved searches
-                {history?.runs?.length ? (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{history.runs.length}</span>
-                ) : null}
+
+            <div className="grid min-w-0 content-start gap-3">
+              <Button type="button" variant="outline" onClick={() => setSavedPanelOpen(true)} className="h-12 w-full min-w-0 justify-between px-4">
+                <span className="inline-flex items-center gap-2">
+                  <History className="h-4 w-4" aria-hidden="true" />
+                  Saved searches
+                </span>
+                <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-white">{savedSearchCount}</span>
               </Button>
-              <Badge variant="success">Domain-first</Badge>
-              <Badge variant="muted">Server-side Lusha calls</Badge>
-              <Badge variant="muted">Admin controlled</Badge>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mode</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">Domain-first</p>
+                </div>
+                <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">Server-side Lusha</p>
+                </div>
+                <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Matching</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">MIDAS database</p>
+                </div>
+                <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Admin</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">Controlled</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="grid gap-3 border-t border-slate-200/80 bg-slate-50/80 px-6 py-3 text-xs text-slate-600 sm:grid-cols-3 lg:px-8">
+          <div className="grid gap-3 border-t border-slate-200/80 bg-slate-50/90 px-6 py-3 text-xs font-medium text-slate-600 sm:grid-cols-3 lg:px-7">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
               Search mode: Domain-first
@@ -400,30 +450,38 @@ export function TrackerDashboard() {
         ) : null}
 
         <div className="grid content-start gap-6">
-          <nav className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-subtle">
+          <nav className="grid gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-subtle lg:grid-cols-[1fr_auto]">
+            <div className="grid gap-1 rounded-xl bg-slate-100 p-1 sm:inline-grid sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("jobChanges")}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+                  activeTab === "jobChanges"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+                }`}
+              >
+                <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
+                Job Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("profile")}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+                  activeTab === "profile"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+                }`}
+              >
+                <Target className="h-4 w-4" aria-hidden="true" />
+                Decision Makers
+              </button>
+            </div>
             <Button
               type="button"
-              variant={activeTab === "jobChanges" ? "default" : "outline"}
-              onClick={() => setActiveTab("jobChanges")}
-              className="h-11"
-            >
-              <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
-              Job Changes
-            </Button>
-            <Button
-              type="button"
-              variant={activeTab === "profile" ? "default" : "outline"}
-              onClick={() => setActiveTab("profile")}
-              className="h-11"
-            >
-              <Target className="h-4 w-4" aria-hidden="true" />
-              Decision Makers
-            </Button>
-            <Button
-              type="button"
-              variant={activeTab === "accounts" ? "default" : "ghost"}
+              variant={activeTab === "accounts" ? "default" : "outline"}
               onClick={() => setActiveTab("accounts")}
-              className="ml-auto h-11"
+              className="h-11 justify-center lg:justify-start"
             >
               <LockKeyhole className="h-4 w-4" aria-hidden="true" />
               Admin: MIDAS Account Database
@@ -451,11 +509,30 @@ export function TrackerDashboard() {
             <SummaryCards summary={response?.summary} />
 
             {loading ? (
-              <div className="flex min-h-72 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-subtle">
-                <div className="text-center">
-                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-                  <p className="mt-3 text-sm font-semibold">Searching job changes and matching against MIDAS accounts</p>
-                  <p className="mt-1 text-xs text-muted-foreground">This may use Lusha prospecting and signal credits in live mode.</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-subtle">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-primary">
+                      <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Searching job changes and matching against MIDAS accounts...</p>
+                      <p className="mt-1 text-xs text-muted-foreground">This may use Lusha prospecting and signal credits in live mode.</p>
+                    </div>
+                  </div>
+                  <Badge variant="success">
+                    <Activity className="h-3.5 w-3.5" aria-hidden="true" />
+                    Live matching
+                  </Badge>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-[1.2fr_1fr_0.8fr]">
+                      <div className="h-4 animate-pulse rounded-full bg-slate-200" />
+                      <div className="h-4 animate-pulse rounded-full bg-slate-200" />
+                      <div className="h-4 animate-pulse rounded-full bg-slate-200" />
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : null}
@@ -515,7 +592,10 @@ export function TrackerDashboard() {
             {!loading && response && activeTab === "jobChanges" ? (
               <ChampionResultsTable
                 results={response.results.filter(isChampionRecord)}
-                onExportCsv={() => downloadCsv(response)}
+                disciplineLabel={jobChangeDisciplineLabel}
+                revealedContactDetails={revealedContactDetails}
+                onRevealedContactDetailsChange={handleRevealedContactDetailsChange}
+                onExportCsv={() => downloadCsv(response, revealedContactDetails)}
               />
             ) : null}
           </section>

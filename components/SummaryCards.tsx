@@ -8,6 +8,8 @@ type SummaryCardsProps = {
 };
 
 export function SummaryCards({ summary }: SummaryCardsProps) {
+  if (!summary) return null;
+
   const championMode = typeof summary?.knownMidasAccounts === "number";
   const items = championMode
     ? [
@@ -33,30 +35,30 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
         const Icon = index === 0 ? BarChart3 : labelText.includes("MIDAS") ? Database : labelText.includes("High") ? Star : labelText.includes("Credits") ? Gauge : Users;
 
         return (
-        <Card key={label} className="bg-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-              <span className="rounded-lg bg-slate-100 p-1.5 text-slate-500">
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-              </span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <p className="text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
-              {label === "Total contacts found" && summary ? (
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Badge variant={summary.matchType === "domain" ? "success" : summary.matchType === "mock" ? "warning" : "muted"}>
-                    {summary.matchType === "domain" ? "Domain matched" : summary.matchType === "mock" ? "Mock data" : "Name matched"}
-                  </Badge>
-                  <Badge variant="muted">{movementDirectionLabels[summary.movementDirection]}</Badge>
-                </div>
-              ) : null}
-              {label === "Credits/API calls" && summary ? (
-                <Badge variant="muted">{summary.signalLookupsRequested} signal checks</Badge>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
+          <Card key={label} className="bg-white transition hover:border-slate-300 hover:shadow-subtle">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                <span className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-500">
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+              </div>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <p className="text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+                {label === "Total contacts found" ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Badge variant={summary.matchType === "domain" ? "success" : summary.matchType === "mock" ? "warning" : "muted"}>
+                      {summary.matchType === "domain" ? "Domain matched" : summary.matchType === "mock" ? "Mock data" : "Name matched"}
+                    </Badge>
+                    <Badge variant="muted">{movementDirectionLabels[summary.movementDirection]}</Badge>
+                  </div>
+                ) : null}
+                {label === "Credits/API calls" ? (
+                  <Badge variant="muted">{summary.signalLookupsRequested} signal checks</Badge>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
         );
       })}
     </div>

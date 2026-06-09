@@ -5,11 +5,13 @@ import { useState } from "react";
 import { RevealContactDetails } from "@/components/RevealContactDetails";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ChampionContactJobChange, ChampionPotential, MidasRelationshipStatus } from "@/lib/types";
+import type { ChampionContactJobChange, ChampionPotential, MidasRelationshipStatus, RevealedContactDetails } from "@/lib/types";
 
 type ChampionResultsTableProps = {
   results: ChampionContactJobChange[];
   disciplineLabel?: string;
+  revealedContactDetails?: Record<string, RevealedContactDetails>;
+  onRevealedContactDetailsChange?: (details: RevealedContactDetails) => void;
   onExportCsv: () => void;
 };
 
@@ -36,7 +38,13 @@ function hasMidasProfileMention(record: ChampionContactJobChange) {
   return /\bmidas\b/.test(profileText);
 }
 
-export function ChampionResultsTable({ results, disciplineLabel, onExportCsv }: ChampionResultsTableProps) {
+export function ChampionResultsTable({
+  results,
+  disciplineLabel,
+  revealedContactDetails = {},
+  onRevealedContactDetailsChange,
+  onExportCsv
+}: ChampionResultsTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function copyMessage(record: ChampionContactJobChange) {
@@ -178,7 +186,11 @@ export function ChampionResultsTable({ results, disciplineLabel, onExportCsv }: 
                   )}
                   <div className="rounded-xl border border-slate-200 bg-white p-3">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Contact details</p>
-                    <RevealContactDetails contactId={record.lushaContactId} />
+                    <RevealContactDetails
+                      contactId={record.lushaContactId}
+                      initialDetails={record.lushaContactId ? revealedContactDetails[record.lushaContactId] : undefined}
+                      onDetailsChange={onRevealedContactDetailsChange}
+                    />
                   </div>
                   <Button type="button" size="sm" variant="outline" onClick={() => copyMessage(record)} className="h-10 justify-start">
                     {copiedId === record.id ? (

@@ -9,8 +9,8 @@ const variants: Record<BadgeVariant, string> = {
   warning: "border-amber-200 bg-amber-50 text-amber-900",
   muted: "border-slate-200 bg-slate-50 text-slate-700",
   destructive: "border-red-200 bg-red-50 text-red-700",
-  info: "border-blue-200 bg-blue-50 text-blue-800",
-  purple: "border-purple-200 bg-purple-50 text-purple-800"
+  info: "border-sky-200 bg-sky-50 text-sky-800",
+  purple: "border-violet-200 bg-violet-50 text-violet-800"
 };
 
 export function Badge({
@@ -21,7 +21,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold leading-none",
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold leading-none shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]",
         variants[variant],
         className
       )}

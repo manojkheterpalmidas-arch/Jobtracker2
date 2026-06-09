@@ -6,10 +6,12 @@ import { RevealContactDetails } from "@/components/RevealContactDetails";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DecisionMakerFit, ProfileMidasMentionResult } from "@/lib/types";
+import type { DecisionMakerFit, ProfileMidasMentionResult, RevealedContactDetails } from "@/lib/types";
 
 type ProfileMidasMentionsTableProps = {
   results: ProfileMidasMentionResult[];
+  revealedContactDetails?: Record<string, RevealedContactDetails>;
+  onRevealedContactDetailsChange?: (details: RevealedContactDetails) => void;
   onExportCsv: () => void;
 };
 
@@ -19,7 +21,12 @@ function fitVariant(fit: DecisionMakerFit) {
   return "muted";
 }
 
-export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidasMentionsTableProps) {
+export function ProfileMidasMentionsTable({
+  results,
+  revealedContactDetails = {},
+  onRevealedContactDetailsChange,
+  onExportCsv
+}: ProfileMidasMentionsTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showOnlyDecisionMakers, setShowOnlyDecisionMakers] = useState(true);
   const [fit, setFit] = useState("");
@@ -85,7 +92,7 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
           <select
             value={fit}
             onChange={(event) => setFit(event.target.value)}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
+            className="select-control h-10"
           >
             <option value="">All fit levels</option>
             <option value="high">High</option>
@@ -134,7 +141,11 @@ export function ProfileMidasMentionsTable({ results, onExportCsv }: ProfileMidas
                   ) : "-"}
                 </td>
                 <td className="px-4 py-3">
-                  <RevealContactDetails contactId={record.lushaContactId} />
+                  <RevealContactDetails
+                    contactId={record.lushaContactId}
+                    initialDetails={record.lushaContactId ? revealedContactDetails[record.lushaContactId] : undefined}
+                    onDetailsChange={onRevealedContactDetailsChange}
+                  />
                 </td>
                 <td className="px-4 py-3">{record.senioritySignals.join(", ") || "-"}</td>
                 <td className="px-4 py-3">{record.roleSignals.join(", ") || "-"}</td>

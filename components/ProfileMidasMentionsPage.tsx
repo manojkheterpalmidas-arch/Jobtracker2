@@ -10,6 +10,7 @@ import {
   type ProfileMentionDiscipline,
   type ProfileMidasMentionRequest,
   type ProfileMidasMentionResponse,
+  type RevealedContactDetails,
   type SearchRequest
 } from "@/lib/types";
 import { ProfileMidasMentionsTable } from "@/components/ProfileMidasMentionsTable";
@@ -60,6 +61,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
   const [customTitleKeywords, setCustomTitleKeywords] = useState("");
   const [localLushaApiKey, setLocalLushaApiKey] = useState("");
   const [response, setResponse] = useState<ProfileMidasMentionResponse | null>(null);
+  const [revealedContactDetails, setRevealedContactDetails] = useState<Record<string, RevealedContactDetails>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -70,6 +72,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
   useEffect(() => {
     if (initialResponse) {
       setResponse(initialResponse);
+      setRevealedContactDetails({});
     }
   }, [initialResponse]);
 
@@ -102,6 +105,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     event.preventDefault();
     setLoading(true);
     setError("");
+    setRevealedContactDetails({});
     window.sessionStorage.setItem("localLushaApiKey", localLushaApiKey);
 
     const payload: ProfileMidasMentionRequest = {
@@ -144,6 +148,8 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       "currentTitle",
       "location",
       "linkedinUrl",
+      "revealedEmails",
+      "revealedPhones",
       "decisionMakerScore",
       "championFit",
       "senioritySignals",
@@ -160,6 +166,8 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       record.currentTitle,
       record.location,
       record.linkedinUrl,
+      record.lushaContactId ? revealedContactDetails[record.lushaContactId]?.emails.join("; ") ?? "" : "",
+      record.lushaContactId ? revealedContactDetails[record.lushaContactId]?.phones.join("; ") ?? "" : "",
       record.decisionMakerScore,
       record.championFit,
       record.senioritySignals.join("; "),
@@ -176,6 +184,13 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     anchor.download = `decision-makers-${new Date().toISOString().slice(0, 10)}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  function handleRevealedContactDetailsChange(details: RevealedContactDetails) {
+    setRevealedContactDetails((current) => ({
+      ...current,
+      [details.contactId]: details
+    }));
   }
 
   return (
@@ -245,7 +260,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   const nextValue = event.target.value as ProfileMentionDiscipline;
                   setDiscipline(nextValue);
                   updateDraft({ discipline: nextValue });
-                }} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20">
+                }} className="select-control">
                   {profileMentionDisciplineOptions.map((option) => (
                     <option key={option} value={option}>{profileMentionDisciplineLabels[option]}</option>
                   ))}
@@ -257,7 +272,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   const nextValue = Number(event.target.value) as ProfileMentionContactLimit;
                   setMaxContactsToCheck(nextValue);
                   updateDraft({ maxContactsToCheck: nextValue });
-                }} className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all hover:border-slate-300 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20">
+                }} className="select-control">
                   {profileMentionContactLimitOptions.map((limit) => (
                     <option key={limit} value={limit}>Check max {limit}</option>
                   ))}
@@ -325,22 +340,24 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {[
-          ["Contacts checked", response?.summary.contactsChecked ?? 0],
-          ["Decision makers found", response?.summary.decisionMakersFound ?? 0],
-          ["High-fit contacts", response?.summary.highConfidence ?? 0],
-          ["Medium-fit contacts", response?.summary.mediumConfidence ?? 0],
-          ["Credits/API calls", `${response?.summary.creditsUsed ?? 0} / ${response?.summary.apiCallsUsed ?? 0}`]
-        ].map(([label, value]) => (
-          <Card key={label} className="bg-white">
-            <CardContent className="p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-              <p className="mt-2 text-2xl font-semibold">{value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {response ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            ["Contacts checked", response.summary.contactsChecked],
+            ["Decision makers found", response.summary.decisionMakersFound],
+            ["High-fit contacts", response.summary.highConfidence],
+            ["Medium-fit contacts", response.summary.mediumConfidence],
+            ["Credits/API calls", `${response.summary.creditsUsed ?? 0} / ${response.summary.apiCallsUsed ?? 0}`]
+          ].map(([label, value]) => (
+            <Card key={label} className="bg-white transition hover:border-slate-300 hover:shadow-subtle">
+              <CardContent className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -388,7 +405,12 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       ) : null}
 
       {response ? (
-        <ProfileMidasMentionsTable results={response.results} onExportCsv={exportCsv} />
+        <ProfileMidasMentionsTable
+          results={response.results}
+          revealedContactDetails={revealedContactDetails}
+          onRevealedContactDetailsChange={handleRevealedContactDetailsChange}
+          onExportCsv={exportCsv}
+        />
       ) : null}
     </div>
   );

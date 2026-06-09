@@ -88,7 +88,7 @@ export function MidasAccountForm({ account, loading, onSubmit, onCancel }: Midas
             id="midasStatus"
             value={relationshipStatus}
             onChange={(event) => setRelationshipStatus(event.target.value as MidasAccountInput["relationshipStatus"])}
-            className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="select-control h-10"
           >
             {relationshipStatusOptions.map((status) => (
               <option key={status} value={status}>{status}</option>
