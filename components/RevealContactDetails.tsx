@@ -14,6 +14,8 @@ type RevealContactDetailsProps = {
 type RevealResponse = {
   details?: RevealedContactDetails;
   error?: string;
+  persisted?: boolean;
+  storageWarning?: string;
 };
 
 function mergeUnique(first: string[], second: string[]) {
@@ -24,6 +26,7 @@ export function RevealContactDetails({ contactId, initialDetails, onDetailsChang
   const [details, setDetails] = useState<RevealedContactDetails | null>(initialDetails ?? null);
   const [loadingField, setLoadingField] = useState<ContactRevealField | null>(null);
   const [error, setError] = useState("");
+  const [storageWarning, setStorageWarning] = useState("");
 
   useEffect(() => {
     setDetails(initialDetails ?? null);
@@ -85,6 +88,13 @@ export function RevealContactDetails({ contactId, initialDetails, onDetailsChang
       if (!result.ok) {
         throw new Error(data.error || "Could not reveal contact details.");
       }
+
+      setStorageWarning(
+        data.persisted === false
+          ? data.storageWarning ||
+              "This contact was not saved to the database, so it will disappear after the server restarts. Check your Supabase setup."
+          : ""
+      );
 
       const revealed = data.details;
 
@@ -155,6 +165,13 @@ export function RevealContactDetails({ contactId, initialDetails, onDetailsChang
         <p className="inline-flex items-start gap-1 text-xs text-red-700">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {error}
+        </p>
+      ) : null}
+
+      {storageWarning ? (
+        <p className="inline-flex items-start gap-1 text-xs text-amber-700">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Not saved: {storageWarning}
         </p>
       ) : null}
     </div>

@@ -55,19 +55,24 @@ export async function POST(request: Request) {
     const missingFields = parsed.data.reveal.filter((field) => !hasStoredField(storedDetails, field));
 
     if (!missingFields.length && storedDetails) {
-      return NextResponse.json({ details: storedDetails, cached: true });
+      return NextResponse.json({ details: storedDetails, cached: true, persisted: true });
     }
 
     const revealed = await revealContactDetails({
       ...parsed.data,
       reveal: missingFields
     });
-    const details = await storeRevealedContactDetails({
+    const stored = await storeRevealedContactDetails({
       ...revealed,
       revealedFields: missingFields
     });
 
-    return NextResponse.json({ details, cached: false });
+    return NextResponse.json({
+      details: stored.details,
+      cached: false,
+      persisted: stored.persisted,
+      storageWarning: stored.persisted ? undefined : stored.storageError
+    });
   } catch (error) {
     if (error instanceof LushaApiError) {
       return NextResponse.json(

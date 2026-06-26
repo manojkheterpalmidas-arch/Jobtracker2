@@ -123,7 +123,19 @@ export async function getStoredRevealedContactDetails(contactId: string): Promis
   }
 }
 
-export async function storeRevealedContactDetails(details: RevealedContactDetails): Promise<RevealedContactDetails> {
+export type StoreRevealedResult = {
+  details: RevealedContactDetails;
+  // false means the value is only held in ephemeral server memory and will be
+  // lost when the serverless instance restarts (i.e. it is NOT durably saved).
+  persisted: boolean;
+  storageError?: string;
+};
+
+const SUPABASE_NOT_CONFIGURED_MESSAGE =
+  "Supabase is not configured (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY). " +
+  "Revealed details are kept only for this session and will be lost when the server restarts.";
+
+export async function storeRevealedContactDetails(details: RevealedContactDetails): Promise<StoreRevealedResult> {
   const existing = await getStoredRevealedContactDetails(details.contactId);
   const merged: RevealedContactDetails = {
     contactId: details.contactId,
@@ -139,7 +151,7 @@ export async function storeRevealedContactDetails(details: RevealedContactDetail
 
   if (!config) {
     getRevealedContactDetailsStore()[details.contactId] = merged;
-    return merged;
+    return { details: merged, persisted: false, storageError: SUPABASE_NOT_CONFIGURED_MESSAGE };
   }
 
   try {
@@ -165,15 +177,21 @@ export async function storeRevealedContactDetails(details: RevealedContactDetail
     });
 
     if (!response.ok) {
+      const storageError = await supabaseErrorText(response);
+      // Surface the real reason (e.g. missing table, wrong key) instead of
+      // pretending the save succeeded and silently losing the data overnight.
+      console.error("[reveal] Supabase save failed:", storageError);
       getRevealedContactDetailsStore()[details.contactId] = merged;
-      return merged;
+      return { details: merged, persisted: false, storageError };
     }
 
     const rows = (await response.json()) as Array<Record<string, unknown>>;
-    return rows[0] ? mapRevealedContactDetails(rows[0]) : merged;
-  } catch {
+    return { details: rows[0] ? mapRevealedContactDetails(rows[0]) : merged, persisted: true };
+  } catch (error) {
+    const storageError = error instanceof Error ? error.message : "Unknown error contacting Supabase.";
+    console.error("[reveal] Supabase save threw:", storageError);
     getRevealedContactDetailsStore()[details.contactId] = merged;
-    return merged;
+    return { details: merged, persisted: false, storageError };
   }
 }
 
