@@ -20,6 +20,10 @@ function requireAdmin(request: Request) {
 }
 
 export async function GET(request: Request) {
+  if (!requireAdmin(request)) {
+    return NextResponse.json({ error: "Invalid admin passcode." }, { status: 401 });
+  }
+
   const url = new URL(request.url);
   const response = await listMidasAccounts({
     query: url.searchParams.get("query") || undefined,

@@ -52,13 +52,16 @@ export function MidasAccountDatabase() {
     setLoading(true);
     try {
       const response = await fetch(`/api/midas-accounts${params ? `?${params}` : ""}`, {
-        cache: "no-store"
+        cache: "no-store",
+        headers: {
+          "x-admin-passcode": adminPasscode
+        }
       });
       setData(await response.json());
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [params, adminPasscode]);
 
   useEffect(() => {
     if (unlocked) {
