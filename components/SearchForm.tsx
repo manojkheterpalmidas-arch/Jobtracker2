@@ -37,6 +37,11 @@ function parseKeywords(value: string) {
     .filter(Boolean);
 }
 
+function hasSameKeywords(value: string, keywords: string[]) {
+  const parsed = parseKeywords(value);
+  return parsed.length === keywords.length && parsed.every((keyword, index) => keyword === keywords[index]);
+}
+
 const showManualApiKeyInput = true;
 
 function toSearchDiscipline(value?: string): Discipline {
@@ -82,7 +87,10 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
     setBoostMidasMentions(initialRequest.boostMidasMentions ?? true);
     setOnlyKnownMidasAccounts(initialRequest.onlyKnownMidasAccounts ?? true);
     setShowUnknownPreviousCompanies(initialRequest.showUnknownPreviousCompanies ?? false);
-    setCustomTitleKeywords((initialRequest.customTitleKeywords ?? []).join("\n"));
+    const incomingTitleKeywords = initialRequest.customTitleKeywords ?? [];
+    setCustomTitleKeywords((current) => (
+      hasSameKeywords(current, incomingTitleKeywords) ? current : incomingTitleKeywords.join("\n")
+    ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRequest]);
 
@@ -333,10 +341,8 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     id="customTitleKeywords"
                     placeholder="One per line or comma separated"
                     value={customTitleKeywords}
-                    onChange={(event) => {
-                      setCustomTitleKeywords(event.target.value);
-                      updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
-                    }}
+                    onChange={(event) => setCustomTitleKeywords(event.target.value)}
+                    onBlur={() => updateDraft({ customTitleKeywords: parseKeywords(customTitleKeywords) })}
                     className="min-h-28"
                   />
                 </div>

@@ -29,6 +29,11 @@ function parseKeywords(value: string) {
     .filter(Boolean);
 }
 
+function hasSameKeywords(value: string, keywords: string[]) {
+  const parsed = parseKeywords(value);
+  return parsed.length === keywords.length && parsed.every((keyword, index) => keyword === keywords[index]);
+}
+
 function csvValue(value: unknown) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
@@ -85,7 +90,10 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     setDiscipline(toProfileDiscipline(initialRequest.discipline));
     setSeniority(initialRequest.seniority ?? seniority);
     setMaxContactsToCheck(initialRequest.maxContactsToCheck ?? maxContactsToCheck);
-    setCustomTitleKeywords((initialRequest.customTitleKeywords ?? []).join("\n"));
+    const incomingTitleKeywords = initialRequest.customTitleKeywords ?? [];
+    setCustomTitleKeywords((current) => (
+      hasSameKeywords(current, incomingTitleKeywords) ? current : incomingTitleKeywords.join("\n")
+    ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRequest]);
 
@@ -305,10 +313,14 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="profileTitleKeywords">Additional title keywords</Label>
-                  <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => {
-                    setCustomTitleKeywords(event.target.value);
-                    updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
-                  }} placeholder="One per line or comma separated" className="min-h-24 rounded-xl border-slate-200 bg-white" />
+                  <Textarea
+                    id="profileTitleKeywords"
+                    value={customTitleKeywords}
+                    onChange={(event) => setCustomTitleKeywords(event.target.value)}
+                    onBlur={() => updateDraft({ customTitleKeywords: parseKeywords(customTitleKeywords) })}
+                    placeholder="One per line or comma separated"
+                    className="min-h-24 rounded-xl border-slate-200 bg-white"
+                  />
                   <p className="text-xs text-muted-foreground">
                     Add titles like Managing Director, Founder, Owner, Partner, Discipline Lead, or Regional Director if needed.
                   </p>
