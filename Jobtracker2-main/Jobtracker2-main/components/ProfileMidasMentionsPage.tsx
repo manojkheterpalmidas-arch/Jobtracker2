@@ -313,10 +313,14 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="profileTitleKeywords">Additional title keywords</Label>
-                  <Textarea id="profileTitleKeywords" value={customTitleKeywords} onChange={(event) => {
-                    setCustomTitleKeywords(event.target.value);
-                    updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
-                  }} placeholder="One per line or comma separated" className="min-h-24 rounded-xl border-slate-200 bg-white" />
+                  <Textarea
+                    id="profileTitleKeywords"
+                    value={customTitleKeywords}
+                    onChange={(event) => setCustomTitleKeywords(event.target.value)}
+                    onBlur={() => updateDraft({ customTitleKeywords: parseKeywords(customTitleKeywords) })}
+                    placeholder="One per line or comma separated"
+                    className="min-h-24 rounded-xl border-slate-200 bg-white"
+                  />
                   <p className="text-xs text-muted-foreground">
                     Add titles like Managing Director, Founder, Owner, Partner, Discipline Lead, or Regional Director if needed.
                   </p>

@@ -341,10 +341,8 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                     id="customTitleKeywords"
                     placeholder="One per line or comma separated"
                     value={customTitleKeywords}
-                    onChange={(event) => {
-                      setCustomTitleKeywords(event.target.value);
-                      updateDraft({ customTitleKeywords: parseKeywords(event.target.value) });
-                    }}
+                    onChange={(event) => setCustomTitleKeywords(event.target.value)}
+                    onBlur={() => updateDraft({ customTitleKeywords: parseKeywords(customTitleKeywords) })}
                     className="min-h-28"
                   />
                 </div>
