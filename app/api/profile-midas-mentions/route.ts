@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isValidDomain, normalizeDomain } from "@/lib/domain";
+import { isValidDomain, parseDomains } from "@/lib/domain";
 import { findProfileMidasMentions, LushaApiError } from "@/lib/lusha";
 import { storeGenericSearchRun } from "@/lib/storage";
 import { ProfileMidasMentionRequestSchema } from "@/lib/types";
@@ -37,21 +37,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const companyDomain = parsed.data.companyDomain
-      ? normalizeDomain(parsed.data.companyDomain)
-      : "";
+    const companyDomains = parseDomains([
+      ...(parsed.data.companyDomains ?? []),
+      ...(parsed.data.companyDomain ? [parsed.data.companyDomain] : [])
+    ]);
+    const invalidDomains = companyDomains.filter((domain) => !isValidDomain(domain));
 
-    if (companyDomain && !isValidDomain(companyDomain)) {
+    if (invalidDomains.length) {
       return NextResponse.json(
-        { error: "Invalid company domain. Enter a domain like wsp.com, without https:// or www." },
+        { error: `Invalid company ${invalidDomains.length === 1 ? "domain" : "domains"}: ${invalidDomains.join(", ")}.` },
         { status: 400 }
       );
     }
 
     const searchRequest = {
       ...parsed.data,
-      companyDomain,
-      normalizedDomain: companyDomain
+      companyDomain: companyDomains[0] ?? "",
+      companyDomains,
+      normalizedDomain: companyDomains[0] ?? "",
+      normalizedDomains: companyDomains
     };
     const response = await findProfileMidasMentions(searchRequest);
     const storage = await storeGenericSearchRun({
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
       summary: response.summary,
       warnings: response.warnings,
       results: response.results,
-      companyDomain,
+      companyDomain: companyDomains[0] ?? "",
       companyName: parsed.data.companyName || undefined,
       location: parsed.data.location || undefined,
       discipline: parsed.data.discipline,

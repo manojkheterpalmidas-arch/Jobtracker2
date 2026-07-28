@@ -476,6 +476,7 @@ export interface SavedSearchRunDetailResponse {
 export const ProfileMidasMentionRequestSchema = z
   .object({
     companyDomain: z.string().trim().max(253).optional().or(z.literal("")),
+    companyDomains: z.array(z.string().trim().min(1).max(253)).max(20).optional(),
     companyName: z.string().trim().max(120).optional().or(z.literal("")),
     location: z.string().trim().max(120).optional().or(z.literal("")),
     discipline: z.enum(profileMentionDisciplineOptions),
@@ -489,7 +490,7 @@ export const ProfileMidasMentionRequestSchema = z
     ]),
     localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
   })
-  .refine((value) => Boolean(value.companyDomain || value.companyName), {
+  .refine((value) => Boolean(value.companyDomains?.length || value.companyDomain || value.companyName), {
     message: "Enter either a target company domain or company name.",
     path: ["companyDomain"]
   });

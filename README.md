@@ -13,7 +13,7 @@ A Next.js App Router sales-intelligence app for finding engineers who recently j
 ## Tabs
 
 - `Job Changes`: primary workflow for finding recent job changes and highlighting possible MIDAS champions.
-- `Decision Makers`: finds senior engineering contacts at the target company who could influence or champion engineering software decisions.
+- `Decision Makers`: searches up to 20 target company domains together and finds senior engineering contacts who could influence or champion engineering software decisions.
 - `Admin: MIDAS Account Database`: passcode-protected internal database management.
 
 ## Decision Makers
@@ -21,7 +21,7 @@ A Next.js App Router sales-intelligence app for finding engineers who recently j
 This workflow is different from Job Changes and does not use MIDAS keywords:
 
 - Job Changes infers likely MIDAS exposure from a person's previous company.
-- Decision Makers finds current target-company contacts with senior engineering or technical leadership titles.
+- Decision Makers finds current contacts across up to 20 target companies with senior engineering or technical leadership titles.
 
 The ranking favours titles such as:
 

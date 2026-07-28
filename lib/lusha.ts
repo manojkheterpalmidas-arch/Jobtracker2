@@ -46,6 +46,7 @@ type SearchJobChangesOptions = SearchRequest & {
 
 type ProfileMidasMentionOptions = ProfileMidasMentionRequest & {
   normalizedDomain?: string;
+  normalizedDomains?: string[];
 };
 
 type LushaLocationFilter = {
@@ -519,6 +520,11 @@ function profileTitleKeywords(params: ProfileMidasMentionOptions) {
   ];
 }
 
+function selectedProfileCompanyDomains(params: ProfileMidasMentionOptions) {
+  if (params.normalizedDomains?.length) return params.normalizedDomains;
+  return params.normalizedDomain ? [params.normalizedDomain] : [];
+}
+
 function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = false) {
   const titleKeywords = Array.from(new Set([
     ...profileTitleKeywords(params),
@@ -549,8 +555,8 @@ function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = 
     };
   } = {
     companies: {
-      include: params.normalizedDomain
-        ? { domains: [params.normalizedDomain] }
+      include: selectedProfileCompanyDomains(params).length
+        ? { domains: selectedProfileCompanyDomains(params) }
         : { names: [params.companyName || ""].filter(Boolean) }
     }
   };
@@ -1105,10 +1111,20 @@ export async function findProfileMidasMentions(
     "Decision-maker search uses Lusha prospecting and can consume credits based on the selected contact limit."
   ];
   const checkedAt = new Date().toISOString();
+  const targetDomains = selectedProfileCompanyDomains(params);
+
+  if (targetDomains.length > 1) {
+    warnings.push(`${targetDomains.length} target company domains were searched together.`);
+  }
 
   if (!apiKey(params.localLushaApiKey)) {
-    const targetCompany = params.companyName || params.normalizedDomain || "Target company";
-    const contacts = mockProfileMentionContacts(targetCompany, params.normalizedDomain).slice(0, params.maxContactsToCheck);
+    const targets = targetDomains.length ? targetDomains : [params.companyName || "Target company"];
+    const contacts = targets.flatMap((domain, index) => (
+      mockProfileMentionContacts(
+        targets.length === 1 && params.companyName ? params.companyName : domain,
+        targetDomains.length ? domain : undefined
+      ).map((contact) => ({ ...contact, id: `${contact.id ?? "mock"}-${index}` }))
+    )).slice(0, params.maxContactsToCheck);
     const results = contacts
       .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
       .map((contact) => buildProfileMidasMentionResult(contact, checkedAt))

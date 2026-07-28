@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { parseDomains } from "@/lib/domain";
 
 const seniorityOptions = ["Engineer", "Senior", "Principal", "Associate", "Director", "Technical Director", "Head"];
 
@@ -57,7 +58,7 @@ function toProfileDiscipline(value?: string): ProfileMentionDiscipline {
 }
 
 export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDraftChange }: ProfileMidasMentionsPageProps) {
-  const [companyDomain, setCompanyDomain] = useState("wsp.com");
+  const [companyDomainsText, setCompanyDomainsText] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
   const [discipline, setDiscipline] = useState<ProfileMentionDiscipline>("structural_bridge");
@@ -84,7 +85,12 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
   useEffect(() => {
     if (!initialRequest) return;
 
-    setCompanyDomain(initialRequest.companyDomain ?? companyDomain);
+    const incomingDomains = initialRequest.companyDomains?.length
+      ? initialRequest.companyDomains
+      : initialRequest.companyDomain
+        ? [initialRequest.companyDomain]
+        : parseDomains(companyDomainsText);
+    setCompanyDomainsText(incomingDomains.join("\n"));
     setCompanyName(initialRequest.companyName ?? companyName);
     setLocation(initialRequest.location ?? location);
     setDiscipline(toProfileDiscipline(initialRequest.discipline));
@@ -116,8 +122,10 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     setRevealedContactDetails({});
     window.sessionStorage.setItem("localLushaApiKey", localLushaApiKey);
 
+    const companyDomains = parseDomains(companyDomainsText);
     const payload: ProfileMidasMentionRequest = {
-      companyDomain,
+      companyDomain: companyDomains[0] ?? "",
+      companyDomains,
       companyName,
       location,
       discipline,
@@ -150,7 +158,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     if (!response) return;
     const headers = [
       "targetCompany",
-      "targetDomain",
+      "targetDomains",
       "personName",
       "currentCompany",
       "currentTitle",
@@ -167,8 +175,8 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       "checkedAt"
     ];
     const rows = response.results.map((record) => [
-      companyName,
-      companyDomain,
+      companyDomains.length > 1 ? `${companyDomains.length} target companies` : companyName,
+      companyDomains.join("; "),
       record.personName,
       record.currentCompany,
       record.currentTitle,
@@ -200,6 +208,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       [details.contactId]: details
     }));
   }, []);
+  const companyDomains = parseDomains(companyDomainsText);
 
   return (
     <div className="grid gap-5">
@@ -212,7 +221,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
             <div>
               <CardTitle className="text-lg">Decision Maker Finder</CardTitle>
               <CardDescription className="mt-2">
-                Find senior engineering contacts at the target company who could influence or champion engineering software decisions.
+                Find senior engineering contacts across one or more target companies who could influence or champion engineering software decisions.
               </CardDescription>
             </div>
           </div>
@@ -220,21 +229,52 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
         <CardContent className="p-6">
           <form className="grid gap-6" onSubmit={handleSubmit}>
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              This searches current contacts at the target company and ranks likely decision makers by seniority and engineering role. Keep the contact limit low while testing live Lusha searches.
+              Search up to 20 companies together and rank likely decision makers by seniority and engineering role. Keep the contact limit low while testing live Lusha searches.
             </div>
 
             <section className="grid gap-4">
               <div>
                 <h3 className="text-sm font-semibold text-slate-950">Target account</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Company domain is preferred; name is used as display/fallback context.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Add up to 20 domains for one combined Decision Maker search.</p>
               </div>
             <div className="grid max-w-6xl gap-4 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="grid gap-2">
-                <Label htmlFor="profileCompanyDomain">Target company domain</Label>
-                <Input id="profileCompanyDomain" value={companyDomain} onChange={(event) => {
-                  setCompanyDomain(event.target.value);
-                  updateDraft({ companyDomain: event.target.value });
-                }} placeholder="wsp.com" className="h-12 text-base font-medium" />
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="profileCompanyDomains">Target company domains</Label>
+                  <span className={`text-xs font-medium ${companyDomains.length > 20 ? "text-red-600" : "text-muted-foreground"}`}>
+                    {companyDomains.length}/20 added
+                  </span>
+                </div>
+                <Textarea
+                  id="profileCompanyDomains"
+                  value={companyDomainsText}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    const nextDomains = parseDomains(nextValue);
+                    setCompanyDomainsText(nextValue);
+                    updateDraft({
+                      companyDomain: nextDomains[0] ?? "",
+                      companyDomains: nextDomains
+                    });
+                  }}
+                  placeholder={"fairhurst.co.uk\nwsp.com\narcadis.com"}
+                  className="min-h-28 resize-y text-base font-medium"
+                />
+                {companyDomains.length ? (
+                  <div className="flex flex-wrap gap-1.5" aria-label="Target company domains">
+                    {companyDomains.slice(0, 20).map((domain) => (
+                      <span key={domain} className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                        {domain}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">One per line or comma-separated. URLs and duplicate domains are cleaned automatically.</p>
+                {companyDomains.length > 20 ? (
+                  <p className="text-xs font-medium text-red-600" role="alert">
+                    Remove {companyDomains.length - 20} {companyDomains.length - 20 === 1 ? "domain" : "domains"} to continue.
+                  </p>
+                ) : null}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="profileCompanyName">Target company name, optional fallback</Label>
@@ -343,7 +383,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
             </section>
 
             <div className="-mx-6 -mb-6 flex justify-start border-t border-slate-200/80 bg-slate-50/70 px-6 py-4">
-              <Button type="submit" disabled={loading} className="h-11 w-full px-5 sm:w-fit">
+              <Button type="submit" disabled={loading || companyDomains.length > 20} className="h-11 w-full px-5 sm:w-fit">
                 <Search className="h-4 w-4" aria-hidden="true" />
                 {loading ? "Finding decision makers..." : "Find decision makers"}
               </Button>
