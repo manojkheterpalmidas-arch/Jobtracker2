@@ -41,6 +41,7 @@ type LushaContactSearchResponse = {
 
 type SearchJobChangesOptions = SearchRequest & {
   normalizedDomain?: string;
+  normalizedDomains?: string[];
 };
 
 type ProfileMidasMentionOptions = ProfileMidasMentionRequest & {
@@ -367,10 +368,19 @@ function selectedTitleKeywords(request: SearchRequest) {
   return Array.from(new Set(keywords.map((value) => value.trim()).filter(Boolean)));
 }
 
+function selectedCompanyDomains(params: SearchJobChangesOptions) {
+  if (params.normalizedDomains?.length) {
+    return params.normalizedDomains;
+  }
+
+  return params.normalizedDomain ? [params.normalizedDomain] : [];
+}
+
 function buildProspectingPayload(params: SearchJobChangesOptions, startDate: string) {
   const titleKeywords = selectedTitleKeywords(params);
-  const companyInclude = params.normalizedDomain
-    ? { domains: [params.normalizedDomain] }
+  const companyDomains = selectedCompanyDomains(params);
+  const companyInclude = companyDomains.length
+    ? { domains: companyDomains }
     : { names: [params.companyName || ""].filter(Boolean) };
   const includeCompanyFilter = params.movementDirection === "joined";
   const contactInclude: {
@@ -658,16 +668,16 @@ function normalizeCompanyName(value?: string) {
 }
 
 function companyMatchesTarget(domain: string | undefined, name: string | undefined, params: SearchJobChangesOptions) {
-  const targetDomain = params.normalizedDomain;
+  const targetDomains = selectedCompanyDomains(params);
   const targetName = normalizeCompanyName(params.companyName);
   const candidateDomain = normalizeDomain(domain || "");
   const candidateName = normalizeCompanyName(name);
 
-  if (targetDomain && candidateDomain && candidateDomain === targetDomain) {
+  if (candidateDomain && targetDomains.includes(candidateDomain)) {
     return true;
   }
 
-  if (targetName && candidateName) {
+  if (!targetDomains.length && targetName && candidateName) {
     return candidateName === targetName || candidateName.includes(targetName) || targetName.includes(candidateName);
   }
 
@@ -905,17 +915,24 @@ function mockSearchResponse(params: SearchJobChangesOptions, startDate: string, 
   }, [
     "Mock data: LUSHA_API_KEY is not configured, so no live Lusha calls were made.",
     ...warnings,
-    params.normalizedDomain ? "Mock search used domain-first matching logic." : "Mock search used company-name fallback logic."
+    selectedCompanyDomains(params).length
+      ? `Mock search used domain-first matching logic for ${selectedCompanyDomains(params).length} target ${selectedCompanyDomains(params).length === 1 ? "company" : "companies"}.`
+      : "Mock search used company-name fallback logic."
   ]);
 }
 
 export async function searchJobChanges(params: SearchJobChangesOptions): Promise<SearchResponse> {
   const startDate = getStartDate(params.durationDays);
-  const matchType: MatchType = params.normalizedDomain ? "domain" : "name";
+  const companyDomains = selectedCompanyDomains(params);
+  const matchType: MatchType = companyDomains.length ? "domain" : "name";
   const warnings: string[] = [];
 
-  if (!params.normalizedDomain && params.companyName) {
+  if (!companyDomains.length && params.companyName) {
     warnings.push("Company name fallback was used. Domain-based matching is more reliable.");
+  }
+
+  if (companyDomains.length > 1) {
+    warnings.push(`Multi-company search: ${companyDomains.length} target domains were searched together.`);
   }
 
   if (params.movementDirection === "either") {

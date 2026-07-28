@@ -22,6 +22,19 @@ export function normalizeDomain(input?: string | null) {
   return removeTrailingSlash(withoutPath).trim().toLowerCase();
 }
 
+export function parseDomains(input?: string | string[] | null) {
+  const values = Array.isArray(input) ? input : (input ?? "").split(/[\n,;]+/);
+
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => value.split(/[\n,;]+/))
+        .map(normalizeDomain)
+        .filter(Boolean)
+    )
+  );
+}
+
 export function isValidDomain(domain?: string | null) {
   if (!domain) {
     return false;

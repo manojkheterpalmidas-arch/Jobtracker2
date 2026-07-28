@@ -50,6 +50,7 @@ export function SavedSearches({
       return [
         run.companyName,
         run.companyDomain,
+        ...(run.companyDomains ?? []),
         run.location,
         run.discipline,
         run.titleFilterMode
@@ -108,11 +109,15 @@ export function SavedSearches({
             <div key={run.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow-subtle">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold">{run.companyName || run.companyDomain || "Unnamed company"}</p>
+                  <p className="font-semibold">
+                    {run.companyDomains && run.companyDomains.length > 1
+                      ? `${run.companyDomains.length} target companies`
+                      : run.companyName || run.companyDomain || "Unnamed company"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {run.searchType === "profile_midas_mentions" ? "Decision Makers" : "Job Changes"}
                     {" - "}
-                    {run.companyDomain || "Name search"}
+                    {run.companyDomains?.length ? run.companyDomains.join(", ") : run.companyDomain || "Name search"}
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

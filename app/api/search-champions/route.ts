@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findMidasCompanyMatch } from "@/lib/companyMatching";
-import { isValidDomain, normalizeDomain } from "@/lib/domain";
+import { isValidDomain, parseDomains } from "@/lib/domain";
 import { LushaApiError, searchJobChanges } from "@/lib/lusha";
 import { listMidasAccounts } from "@/lib/midasAccounts";
 import { scoreChampion } from "@/lib/championScoring";
@@ -40,22 +40,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const companyDomain = parsed.data.companyDomain
-      ? normalizeDomain(parsed.data.companyDomain)
-      : "";
+    const companyDomains = parseDomains([
+      ...(parsed.data.companyDomains ?? []),
+      parsed.data.companyDomain ?? ""
+    ]);
+    const invalidDomains = companyDomains.filter((domain) => !isValidDomain(domain));
 
-    if (companyDomain && !isValidDomain(companyDomain)) {
+    if (invalidDomains.length) {
       return NextResponse.json(
-        { error: "Invalid company domain. Enter a domain like wsp.com, without https:// or www." },
+        {
+          error: `Invalid company ${invalidDomains.length === 1 ? "domain" : "domains"}: ${invalidDomains.join(", ")}. Enter domains like wsp.com.`
+        },
         { status: 400 }
       );
     }
 
     const searchRequest = {
       ...parsed.data,
-      companyDomain,
+      companyDomain: companyDomains[0] ?? "",
+      companyDomains,
       movementDirection: "joined" as const,
-      normalizedDomain: companyDomain
+      normalizedDomain: companyDomains[0] ?? "",
+      normalizedDomains: companyDomains
     };
     const [jobChangeResponse, midasAccountsResponse] = await Promise.all([
       searchJobChanges(searchRequest),

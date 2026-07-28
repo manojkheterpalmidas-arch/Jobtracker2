@@ -459,6 +459,7 @@ function mapStoredSearchRun(run: StoredSearchRun): SavedSearchRun {
     createdAt: run.createdAt,
     searchType: run.searchType,
     companyDomain: run.request.companyDomain || undefined,
+    companyDomains: run.request.companyDomains,
     companyName: run.request.companyName || undefined,
     location: run.request.location || undefined,
     durationDays: run.request.durationDays,
@@ -486,11 +487,14 @@ function mapStoredSearchRunDetail(run: StoredSearchRun): SavedSearchRunDetail {
 }
 
 function mapSupabaseSearchRun(row: Record<string, unknown>): SavedSearchRun {
+  const request = asRecord(row.request);
+
   return {
     id: String(row.id),
     createdAt: String(row.created_at),
-    searchType: typeof row.search_type === "string" ? row.search_type : asRecord(row.request).searchType as string | undefined,
+    searchType: typeof row.search_type === "string" ? row.search_type : request.searchType as string | undefined,
     companyDomain: typeof row.company_domain === "string" ? row.company_domain : undefined,
+    companyDomains: asStringArray(request.companyDomains),
     companyName: typeof row.company_name === "string" ? row.company_name : undefined,
     location: typeof row.location === "string" ? row.location : undefined,
     durationDays: typeof row.duration_days === "number" ? row.duration_days : undefined,

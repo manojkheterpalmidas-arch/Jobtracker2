@@ -9,6 +9,7 @@ type RevealContactDetailsProps = {
   contactId?: string;
   initialDetails?: RevealedContactDetails;
   onDetailsChange?: (details: RevealedContactDetails) => void;
+  disabled?: boolean;
 };
 
 type RevealResponse = {
@@ -22,7 +23,7 @@ function mergeUnique(first: string[], second: string[]) {
   return Array.from(new Set([...first, ...second].filter(Boolean)));
 }
 
-export function RevealContactDetails({ contactId, initialDetails, onDetailsChange }: RevealContactDetailsProps) {
+export function RevealContactDetails({ contactId, initialDetails, onDetailsChange, disabled = false }: RevealContactDetailsProps) {
   const [details, setDetails] = useState<RevealedContactDetails | null>(initialDetails ?? null);
   const [loadingField, setLoadingField] = useState<ContactRevealField | null>(null);
   const [error, setError] = useState("");
@@ -127,11 +128,11 @@ export function RevealContactDetails({ contactId, initialDetails, onDetailsChang
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={() => reveal("emails")} disabled={loadingField !== null}>
+        <Button type="button" size="sm" variant="outline" onClick={() => reveal("emails")} disabled={disabled || loadingField !== null}>
           <Mail className="h-3.5 w-3.5" aria-hidden="true" />
           {loadingField === "emails" ? "Revealing..." : "Email"}
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => reveal("phones")} disabled={loadingField !== null}>
+        <Button type="button" size="sm" variant="outline" onClick={() => reveal("phones")} disabled={disabled || loadingField !== null}>
           <Phone className="h-3.5 w-3.5" aria-hidden="true" />
           {loadingField === "phones" ? "Revealing..." : "Phone"}
         </Button>

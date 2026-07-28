@@ -177,6 +177,7 @@ export const defaultTitleKeywords: Record<Discipline, string[]> = {
 export const SearchRequestSchema = z
   .object({
     companyDomain: z.string().trim().max(253).optional().or(z.literal("")),
+    companyDomains: z.array(z.string().trim().min(1).max(253)).max(20).optional(),
     companyName: z.string().trim().max(120).optional().or(z.literal("")),
     location: z.string().trim().max(120).optional().or(z.literal("")),
     durationDays: z.union([
@@ -203,8 +204,8 @@ export const SearchRequestSchema = z
     seniority: z.array(z.string().trim().max(80)).max(8).optional(),
     localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
   })
-  .refine((value) => Boolean(value.companyDomain || value.companyName), {
-    message: "Enter either a company domain or a company name.",
+  .refine((value) => Boolean(value.companyDomains?.length || value.companyDomain || value.companyName), {
+    message: "Enter at least one company domain or a company name.",
     path: ["companyDomain"]
   });
 
@@ -436,6 +437,7 @@ export interface SavedSearchRun {
   createdAt: string;
   searchType?: string;
   companyDomain?: string;
+  companyDomains?: string[];
   companyName?: string;
   location?: string;
   durationDays?: number;

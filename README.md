@@ -4,8 +4,8 @@ A Next.js App Router sales-intelligence app for finding engineers who recently j
 
 ## Main Workflow
 
-1. Enter a target company domain, such as `wsp.com`, `arcadis.com`, or `mottmac.com`.
-2. The app searches Lusha for people who recently joined that company.
+1. Enter one or more target company domains, such as `wsp.com`, `arcadis.com`, or `mottmac.com`.
+2. The app searches Lusha for people who recently joined any of those companies.
 3. Each `companyChange` signal is checked for the person's previous company.
 4. The previous company is matched against `midas_accounts` in Supabase.
 5. Matching people are scored as possible MIDAS-aware champions and shown with the reason, action, and message.
@@ -39,6 +39,7 @@ The app:
 3. Scores contacts by seniority and engineering role fit.
 4. Sorts likely decision makers first.
 5. Provides a suggested warm, non-salesy outreach message.
+6. Lets users select multiple contacts and reveal email addresses and phone numbers in one confirmed batch.
 
 This can consume Lusha prospecting credits. Keep `Max contacts to check` low while testing, then increase only when the search is useful.
 
@@ -111,6 +112,8 @@ APP_BASE_URL=http://localhost:3000
 `ADMIN_PASSCODE` is an MVP gate for the database tab. Replace it with real authentication before wider production rollout.
 
 The manual Lusha key field is intentionally still available for production: it stores the key only in browser `sessionStorage` and sends it only with the current server request. For shared team deployments, setting `LUSHA_API_KEY` in Vercel is cleaner.
+
+For multi-company searches, enter up to 20 domains separated by commas or new lines. Domains are normalized, de-duplicated, and sent to Lusha in one company-domain filter.
 
 ## Matching Logic
 

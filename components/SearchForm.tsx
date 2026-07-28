@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { parseDomains } from "@/lib/domain";
 import {
   disciplineLabels,
   disciplineOptions,
@@ -55,7 +56,7 @@ function toSearchDiscipline(value?: string): Discipline {
 }
 
 export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }: SearchFormProps) {
-  const [companyDomain, setCompanyDomain] = useState("wsp.com");
+  const [companyDomainsText, setCompanyDomainsText] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
   const [durationDays, setDurationDays] = useState<DurationDays>(90);
@@ -77,7 +78,12 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
   useEffect(() => {
     if (!initialRequest) return;
 
-    setCompanyDomain(initialRequest.companyDomain ?? companyDomain);
+    const incomingDomains = initialRequest.companyDomains?.length
+      ? initialRequest.companyDomains
+      : initialRequest.companyDomain
+        ? [initialRequest.companyDomain]
+        : [];
+    setCompanyDomainsText(incomingDomains.join("\n"));
     setCompanyName(initialRequest.companyName ?? companyName);
     setLocation(initialRequest.location ?? location);
     setDurationDays(initialRequest.durationDays ?? 90);
@@ -104,8 +110,11 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
       window.sessionStorage.setItem("localLushaApiKey", localLushaApiKey);
     }
 
+    const companyDomains = parseDomains(companyDomainsText);
+
     onSearch({
-      companyDomain,
+      companyDomain: companyDomains[0] ?? "",
+      companyDomains,
       companyName,
       location,
       durationDays,
@@ -122,6 +131,8 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
     });
   }
 
+  const companyDomains = parseDomains(companyDomainsText);
+
   return (
     <Card className="overflow-hidden border-slate-200/90 bg-white shadow-panel">
       <CardHeader className="border-b border-slate-200/80 bg-white px-5 py-5 sm:px-6">
@@ -134,7 +145,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Champion search</p>
               <CardTitle className="mt-1 text-lg">Search criteria</CardTitle>
               <CardDescription className="mt-2">
-                Domain matching is used first. Company name is only a fallback or display label.
+                Search one company or several at once. Domain matching is used first.
               </CardDescription>
             </div>
           </div>
@@ -157,31 +168,58 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-slate-950">Target account</h3>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      Use the company domain whenever possible for cleaner account matching.
+                      Add up to 20 company domains for one combined search.
                     </p>
                   </div>
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                   <div className="grid gap-2">
-                    <Label htmlFor="companyDomain">Company domain</Label>
-                    <Input
-                      id="companyDomain"
-                      placeholder="wsp.com"
-                      value={companyDomain}
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="companyDomains">Company domains</Label>
+                      <span className={`text-xs font-medium ${companyDomains.length > 20 ? "text-red-600" : "text-muted-foreground"}`}>
+                        {companyDomains.length}/20 added
+                      </span>
+                    </div>
+                    <Textarea
+                      id="companyDomains"
+                      placeholder={"wsp.com\narcadis.com\nmottmac.com"}
+                      value={companyDomainsText}
                       onChange={(event) => {
-                        setCompanyDomain(event.target.value);
-                        updateDraft({ companyDomain: event.target.value });
+                        const nextValue = event.target.value;
+                        const nextDomains = parseDomains(nextValue);
+                        setCompanyDomainsText(nextValue);
+                        updateDraft({
+                          companyDomain: nextDomains[0] ?? "",
+                          companyDomains: nextDomains
+                        });
                       }}
-                      className="h-12 text-base font-semibold"
+                      className="min-h-28 resize-y text-base font-semibold"
                     />
+                    {companyDomains.length ? (
+                      <div className="flex flex-wrap gap-1.5" aria-label="Target company domains">
+                        {companyDomains.slice(0, 20).map((domain) => (
+                          <span
+                            key={domain}
+                            className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+                          >
+                            {domain}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
-                      Recommended for better matching, e.g. wsp.com
+                      One per line or comma-separated. URLs and duplicate domains are cleaned automatically.
                     </p>
+                    {companyDomains.length > 20 ? (
+                      <p className="text-xs font-medium text-red-600" role="alert">
+                        Remove {companyDomains.length - 20} {companyDomains.length - 20 === 1 ? "domain" : "domains"} to continue.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="companyName">Company name fallback</Label>
+                    <Label htmlFor="companyName">Company name, optional fallback</Label>
                     <Input
                       id="companyName"
                       placeholder="WSP"
@@ -193,7 +231,7 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
                       className="h-12"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Used as a display label or fallback if no domain is provided.
+                      Used only when no domain is entered, or as a display label for a single company.
                     </p>
                   </div>
                 </div>
@@ -450,9 +488,11 @@ export function SearchForm({ loading, onSearch, initialRequest, onDraftChange }:
 
           <div className="flex flex-col gap-3 border-t border-slate-200/80 bg-slate-50/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-xs font-medium text-muted-foreground">
-              Uses domain-first search, Lusha signals, and MIDAS account matching.
+              {companyDomains.length > 1
+                ? `Searching ${companyDomains.length} companies together with domain-first matching.`
+                : "Uses domain-first search, Lusha signals, and MIDAS account matching."}
             </p>
-            <Button type="submit" disabled={loading} className="h-11 w-full px-5 sm:w-fit">
+            <Button type="submit" disabled={loading || companyDomains.length > 20} className="h-11 w-full px-5 sm:w-fit">
               <Search className="h-4 w-4" aria-hidden="true" />
               {loading ? "Searching Lusha signals..." : "Find job changes"}
             </Button>
