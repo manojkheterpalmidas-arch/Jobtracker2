@@ -3,9 +3,13 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, KeyRound, Loader2, Search, Target, Users } from "lucide-react";
 import {
+  keywordModeDescriptions,
+  keywordModeLabels,
+  keywordModeOptions,
   profileMentionContactLimitOptions,
   profileMentionDisciplineLabels,
   profileMentionDisciplineOptions,
+  type KeywordMode,
   type ProfileMentionContactLimit,
   type ProfileMentionDiscipline,
   type ProfileMidasMentionRequest,
@@ -65,6 +69,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
   const [seniority, setSeniority] = useState<string[]>(["Principal", "Associate", "Director", "Technical Director", "Head"]);
   const [maxContactsToCheck, setMaxContactsToCheck] = useState<ProfileMentionContactLimit>(25);
   const [customTitleKeywords, setCustomTitleKeywords] = useState("");
+  const [keywordMode, setKeywordMode] = useState<KeywordMode>("expanded");
   const [localLushaApiKey, setLocalLushaApiKey] = useState("");
   const [response, setResponse] = useState<ProfileMidasMentionResponse | null>(null);
   const [revealedContactDetails, setRevealedContactDetails] = useState<Record<string, RevealedContactDetails>>({});
@@ -96,6 +101,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     setDiscipline(toProfileDiscipline(initialRequest.discipline));
     setSeniority(initialRequest.seniority ?? seniority);
     setMaxContactsToCheck(initialRequest.maxContactsToCheck ?? maxContactsToCheck);
+    if (initialRequest.keywordMode) setKeywordMode(initialRequest.keywordMode);
     const incomingTitleKeywords = initialRequest.customTitleKeywords ?? [];
     setCustomTitleKeywords((current) => (
       hasSameKeywords(current, incomingTitleKeywords) ? current : incomingTitleKeywords.join("\n")
@@ -130,6 +136,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       location,
       discipline,
       customTitleKeywords: parseKeywords(customTitleKeywords),
+      keywordMode,
       seniority,
       maxContactsToCheck,
       localLushaApiKey
@@ -170,6 +177,8 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       "championFit",
       "senioritySignals",
       "roleSignals",
+      "matchedKeywords",
+      "exactKeywordMatch",
       "suggestedAction",
       "suggestedMessage",
       "checkedAt"
@@ -188,6 +197,8 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
       record.championFit,
       record.senioritySignals.join("; "),
       record.roleSignals.join("; "),
+      (record.matchedKeywords ?? []).join("; "),
+      record.exactKeywordMatch ? "yes" : "no",
       record.suggestedAction,
       record.suggestedMessage,
       record.checkedAt
@@ -352,17 +363,41 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="profileTitleKeywords">Additional title keywords</Label>
+                  <Label htmlFor="profileTitleKeywords">Job title keywords</Label>
                   <Textarea
                     id="profileTitleKeywords"
                     value={customTitleKeywords}
                     onChange={(event) => setCustomTitleKeywords(event.target.value)}
                     onBlur={() => updateDraft({ customTitleKeywords: parseKeywords(customTitleKeywords) })}
-                    placeholder="One per line or comma separated"
+                    placeholder={"Temporary Works Designer\nBridge Design Manager"}
                     className="min-h-24 rounded-xl border-slate-200 bg-white"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Add titles like Managing Director, Founder, Owner, Partner, Discipline Lead, or Regional Director if needed.
+                    One per line or comma separated. When you enter a keyword, results are restricted to job titles that match it — seniority below is used only to rank those matches.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="profileKeywordMode">Keyword matching</Label>
+                  <select
+                    id="profileKeywordMode"
+                    value={keywordMode}
+                    disabled={!parseKeywords(customTitleKeywords).length}
+                    onChange={(event) => {
+                      const nextValue = event.target.value as KeywordMode;
+                      setKeywordMode(nextValue);
+                      updateDraft({ keywordMode: nextValue });
+                    }}
+                    className="select-control disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {keywordModeOptions.map((option) => (
+                      <option key={option} value={option}>{keywordModeLabels[option]}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    {parseKeywords(customTitleKeywords).length
+                      ? keywordModeDescriptions[keywordMode]
+                      : "Add a job title keyword above to enable keyword matching. With no keyword, the search ranks senior engineering titles as before."}
                   </p>
                 </div>
               </div>
@@ -394,13 +429,15 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
 
       {response ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {[
+          {([
             ["Contacts checked", response.summary.contactsChecked],
-            ["Decision makers found", response.summary.decisionMakersFound],
+            ...(response.summary.keywordMatches
+              ? [["Keyword matches", response.summary.keywordMatches] as [string, number]]
+              : [["Decision makers found", response.summary.decisionMakersFound] as [string, number]]),
             ["High-fit contacts", response.summary.highConfidence],
             ["Medium-fit contacts", response.summary.mediumConfidence],
             ["Credits/API calls", `${response.summary.creditsUsed ?? 0} / ${response.summary.apiCallsUsed ?? 0}`]
-          ].map(([label, value]) => (
+          ] as Array<[string, string | number]>).map(([label, value]) => (
             <Card key={label} className="bg-white transition hover:border-slate-300 hover:shadow-subtle">
               <CardContent className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>

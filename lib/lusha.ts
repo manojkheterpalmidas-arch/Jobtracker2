@@ -1,13 +1,14 @@
 import { getStartDate, isOnOrAfter, toIsoDate } from "@/lib/date";
 import { normalizeDomain } from "@/lib/domain";
 import { generateSuggestedMessage } from "@/lib/messageTemplates";
-import { buildProfileMidasMentionResult } from "@/lib/profileMidasMentionScoring";
+import { buildProfileMidasMentionResult, decisionMakerScore } from "@/lib/profileMidasMentionScoring";
 import {
   classifyPriority,
   excludeIrrelevantTitles,
   scoreContactJobChange,
   suggestedSalesAction
 } from "@/lib/scoring";
+import { cleanKeywords, expandKeywords, matchKeywords } from "@/lib/keywordSearch";
 import {
   defaultTitleKeywords,
   type ContactRevealField,
@@ -456,7 +457,32 @@ export async function searchContacts(params: SearchJobChangesOptions, startDate:
   }, params.localLushaApiKey);
 }
 
+/** Keywords the user typed, used for both querying and post-filtering. */
+function profileUserKeywords(params: ProfileMidasMentionOptions) {
+  return cleanKeywords(params.customTitleKeywords);
+}
+
+/**
+ * True when the search should be driven by the user's keyword rather than by the
+ * generic senior-title list. This is what makes "Temporary Works Designer"
+ * return temporary works designers instead of every Director at the company.
+ */
+function isKeywordDrivenSearch(params: ProfileMidasMentionOptions) {
+  const mode = params.keywordMode ?? "expanded";
+  return mode !== "blended" && profileUserKeywords(params).length > 0;
+}
+
 function profileTitleKeywords(params: ProfileMidasMentionOptions) {
+  const userKeywords = profileUserKeywords(params);
+
+  if (isKeywordDrivenSearch(params)) {
+    // Send only the keyword (and, in expanded mode, close title variants of the
+    // same role). Mixing in generic senior titles is what buried the keyword.
+    return (params.keywordMode ?? "expanded") === "exact"
+      ? userKeywords
+      : expandKeywords(userKeywords);
+  }
+
   const decisionMakerTitles = [
     "Associate Director",
     "Director",
@@ -525,11 +551,26 @@ function selectedProfileCompanyDomains(params: ProfileMidasMentionOptions) {
   return params.normalizedDomain ? [params.normalizedDomain] : [];
 }
 
-function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = false) {
-  const titleKeywords = Array.from(new Set([
-    ...profileTitleKeywords(params),
-    ...(params.customTitleKeywords ?? [])
-  ].map((value) => value.trim()).filter(Boolean)));
+/**
+ * `titled`      - filter by job title (and, outside keyword mode, department).
+ * `company_only`- company + location only; used as a keyword recall fallback and
+ *                 post-filtered locally, so a weak Lusha title index cannot hide
+ *                 a contact whose title clearly contains the keyword.
+ * `broad`       - legacy unfiltered fallback, blended mode only.
+ */
+type CompanyContactSearchMode = "titled" | "company_only" | "broad";
+
+function buildCompanyContactPayload(
+  params: ProfileMidasMentionOptions,
+  mode: CompanyContactSearchMode = "titled"
+) {
+  const keywordDriven = isKeywordDrivenSearch(params);
+  const titleKeywords = keywordDriven
+    ? profileTitleKeywords(params)
+    : Array.from(new Set([
+      ...profileTitleKeywords(params),
+      ...(params.customTitleKeywords ?? [])
+    ].map((value) => value.trim()).filter(Boolean)));
   const contactInclude: {
     departments?: string[];
     jobTitles?: string[];
@@ -538,11 +579,14 @@ function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = 
     locations: parseLushaLocation(params.location)
   };
 
-  if (!broad) {
+  // The department filter is deliberately skipped for keyword searches. At
+  // contractors, roles such as temporary works sit under Construction or
+  // Operations, so "Engineering & Technical" silently removed them server-side.
+  if (mode === "titled" && !keywordDriven) {
     contactInclude.departments = ["Engineering & Technical"];
   }
 
-  if (!broad && titleKeywords.length) {
+  if (mode === "titled" && titleKeywords.length) {
     contactInclude.jobTitles = titleKeywords;
   }
 
@@ -567,10 +611,18 @@ function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = 
     };
   }
 
+  // Keyword searches pull a wider candidate pool than the user's check limit,
+  // because the limit should cap how many contacts are *enriched* (the costly
+  // step), not how many are considered. Otherwise the one matching contact can
+  // be truncated out of the page before it is ever scored.
+  const poolSize = isKeywordDrivenSearch(params)
+    ? Math.min(200, Math.max(params.maxContactsToCheck, 100))
+    : Math.min(params.maxContactsToCheck, 200);
+
   return {
     pagination: {
       page: 0,
-      size: Math.min(params.maxContactsToCheck, 200)
+      size: poolSize
     },
     filters,
     options: {
@@ -579,10 +631,13 @@ function buildCompanyContactPayload(params: ProfileMidasMentionOptions, broad = 
   };
 }
 
-export async function searchContactsInCompany(params: ProfileMidasMentionOptions, options?: { broad?: boolean }) {
+export async function searchContactsInCompany(
+  params: ProfileMidasMentionOptions,
+  options?: { mode?: CompanyContactSearchMode }
+) {
   return lushaFetch<LushaContactSearchResponse>("/v3/contacts/prospecting", {
     method: "POST",
-    body: JSON.stringify(buildCompanyContactPayload(params, Boolean(options?.broad)))
+    body: JSON.stringify(buildCompanyContactPayload(params, options?.mode ?? "titled"))
   }, params.localLushaApiKey);
 }
 
@@ -1055,7 +1110,8 @@ function summarizeProfileMentionResults(
   results: ProfileMidasMentionResponse["results"],
   apiCallsUsed: number,
   creditsUsed: number | undefined,
-  mockMode: boolean
+  mockMode: boolean,
+  filteredOutByKeyword = 0
 ): ProfileMidasMentionResponse["summary"] {
   return {
     contactsChecked: results.length,
@@ -1063,6 +1119,8 @@ function summarizeProfileMentionResults(
     highConfidence: results.filter((result) => result.championFit === "high").length,
     mediumConfidence: results.filter((result) => result.championFit === "medium").length,
     lowConfidence: results.filter((result) => result.championFit === "low").length,
+    keywordMatches: results.filter((result) => result.matchedKeywords.length > 0).length,
+    filteredOutByKeyword,
     apiCallsUsed,
     creditsUsed,
     mockMode
@@ -1125,9 +1183,16 @@ export async function findProfileMidasMentions(
         targetDomains.length ? domain : undefined
       ).map((contact) => ({ ...contact, id: `${contact.id ?? "mock"}-${index}` }))
     )).slice(0, params.maxContactsToCheck);
+    const mockKeywords = profileUserKeywords(params);
+    const mockKeywordDriven = isKeywordDrivenSearch(params);
     const results = contacts
-      .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
-      .map((contact) => buildProfileMidasMentionResult(contact, checkedAt))
+      .filter((contact) => {
+        const title = contactTitle(contact);
+        if (matchKeywords(title, mockKeywords).matchedKeywords.length) return true;
+        if (mockKeywordDriven) return false;
+        return !excludeIrrelevantTitles(title);
+      })
+      .map((contact) => buildProfileMidasMentionResult(contact, checkedAt, mockKeywords))
       .sort((a, b) => b.decisionMakerScore - a.decisionMakerScore);
 
     return {
@@ -1140,24 +1205,75 @@ export async function findProfileMidasMentions(
     };
   }
 
+  const userKeywords = profileUserKeywords(params);
+  const keywordDriven = isKeywordDrivenSearch(params);
   const contactSearch = await searchContactsInCompany(params);
   const filteredContacts = extractContacts(contactSearch);
   let contacts = filteredContacts;
-  let broadSearch: LushaContactSearchResponse | undefined;
-  let broadFallbackUsed = false;
+  let fallbackSearch: LushaContactSearchResponse | undefined;
+  let fallbackUsed = false;
+  let filteredOutByKeyword = 0;
 
-  if (filteredContacts.length < params.maxContactsToCheck) {
+  if (keywordDriven) {
+    warnings.push(
+      params.keywordMode === "exact"
+        ? `Exact keyword search: only contacts whose job title contains ${userKeywords.map((keyword) => `"${keyword}"`).join(" or ")} are returned.`
+        : `Keyword search: Lusha was queried for "${userKeywords.join('", "')}" plus close title variants, and results were filtered back to your keyword.`
+    );
+
+    // Lusha's jobTitles filter can miss non-standard titles. If the titled
+    // search found nothing, re-query the company without title filters and match
+    // the keyword locally, which is far more forgiving than the server-side index.
+    if (!filteredContacts.length) {
+      try {
+        fallbackSearch = await searchContactsInCompany(params, { mode: "company_only" });
+        contacts = extractContacts(fallbackSearch);
+        fallbackUsed = true;
+        warnings.push(
+          "Keyword recall fallback used: Lusha's title filter returned nothing, so the app listed the target company and matched your keyword against job titles locally."
+        );
+      } catch {
+        warnings.push("Keyword recall fallback failed, so only the title-filtered contacts were scored.");
+      }
+    }
+
+    // Exact mode demands the literal phrase. Expanded mode accepts the role stem,
+    // so a "Temporary Works Coordinator" surfaced by the widened query survives a
+    // search for "Temporary Works Designer" instead of being filtered back out.
+    const exactOnly = params.keywordMode === "exact";
+    const beforeKeywordFilter = contacts.length;
+    contacts = contacts.filter((contact) => {
+      const match = matchKeywords(contactTitle(contact), userKeywords, { allowStem: !exactOnly });
+      return exactOnly ? match.strength === "exact" : match.strength !== "none";
+    });
+    filteredOutByKeyword = beforeKeywordFilter - contacts.length;
+
+    if (filteredOutByKeyword > 0) {
+      warnings.push(
+        `${filteredOutByKeyword} contact${filteredOutByKeyword === 1 ? " was" : "s were"} returned by Lusha but dropped because the job title did not match your keyword.`
+      );
+    }
+  } else if (filteredContacts.length < params.maxContactsToCheck) {
     try {
-      broadSearch = await searchContactsInCompany(params, { broad: true });
-      const broadContacts = extractContacts(broadSearch);
+      fallbackSearch = await searchContactsInCompany(params, { mode: "broad" });
+      const broadContacts = extractContacts(fallbackSearch);
       contacts = mergeContacts(filteredContacts, broadContacts);
-      broadFallbackUsed = true;
+      fallbackUsed = true;
       warnings.push(
         "Broad fallback used: the first title-filtered search returned fewer contacts than your selected cap, so the app also searched the target company without title/department filters and ranked the merged results locally."
       );
     } catch {
       warnings.push("Broad fallback search failed, so only the title-filtered contacts were scored.");
     }
+  }
+
+  // Rank before truncating so the check limit caps enrichment cost rather than
+  // deciding, arbitrarily, which contacts get considered at all.
+  if (keywordDriven) {
+    contacts = contacts
+      .map((contact) => ({ contact, score: decisionMakerScore(contact, userKeywords) }))
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.contact);
   }
 
   contacts = contacts.slice(0, params.maxContactsToCheck);
@@ -1184,21 +1300,33 @@ export async function findProfileMidasMentions(
   }
 
   const results = enrichedContacts
-    .filter((contact) => !excludeIrrelevantTitles(typeof contact.jobTitle === "string" ? contact.jobTitle : contact.title || ""))
-    .map((contact) => buildProfileMidasMentionResult(contact, checkedAt))
+    // The irrelevant-title blocklist is bypassed for keyword matches: if the user
+    // searched for "Temporary Works Designer" or an architect, that is the answer,
+    // not noise to be stripped out.
+    .filter((contact) => {
+      const title = contactTitle(contact);
+      if (matchKeywords(title, userKeywords).matchedKeywords.length) return true;
+      return !excludeIrrelevantTitles(title);
+    })
+    .map((contact) => buildProfileMidasMentionResult(contact, checkedAt, userKeywords))
     .sort((a, b) => b.decisionMakerScore - a.decisionMakerScore);
 
   if (!results.length) {
-    warnings.push("No decision-maker contacts were found for the selected company and filters.");
+    warnings.push(
+      keywordDriven
+        ? `No contacts at the selected ${targetDomains.length > 1 ? "companies" : "company"} had a job title matching your keyword. Try "Keyword + close variants", a shorter keyword such as a role stem, a wider location, or a higher contact limit.`
+        : "No decision-maker contacts were found for the selected company and filters."
+    );
   }
 
   return {
     results,
     summary: summarizeProfileMentionResults(
       results,
-      1 + (broadFallbackUsed ? 1 : 0) + enrichmentAttempts,
-      (contactSearch.billing?.creditsCharged ?? 0) + (broadSearch?.billing?.creditsCharged ?? 0),
-      false
+      1 + (fallbackUsed ? 1 : 0) + enrichmentAttempts,
+      (contactSearch.billing?.creditsCharged ?? 0) + (fallbackSearch?.billing?.creditsCharged ?? 0),
+      false,
+      filteredOutByKeyword
     ),
     warnings
   };

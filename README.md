@@ -32,11 +32,32 @@ The ranking favours titles such as:
 - Managing Director / Partner / Owner
 - Senior bridge, structural, civil, geotechnical, rail, highways, or infrastructure engineers
 
+### Keyword search
+
+When you enter anything in `Job title keywords`, the search becomes **keyword-first**: the keyword decides *who is returned*, and seniority only decides *how those matches are ranked*. This is the difference between asking for a Temporary Works Designer at a contractor and getting one, versus getting a random list of that company's directors.
+
+Three matching modes:
+
+| Mode | Sent to Lusha | Returned |
+| --- | --- | --- |
+| `Keyword + close variants` (default) | Your keyword plus title variants of the same role | Titles matching your keyword or its role stem |
+| `Exact keyword only` | Your keyword only | Only titles containing the keyword verbatim |
+| `Keyword + seniority titles` | Keyword merged into the generic senior-title list | Everything (old behaviour) |
+
+In the default mode, a search for `Temporary Works Designer` also queries Temporary Works Engineer / Coordinator / Design Manager / Supervisor / Senior + Principal variants, then keeps any title containing the `temporary works` stem. `Technical Director` and `Design Manager` are not returned; `Permanent Works Designer` is not returned.
+
+Keyword behaviour differs from the generic search in four ways that matter:
+
+- The `Engineering & Technical` department filter is **not** applied, because at contractors these roles are often filed under Construction or Operations.
+- The noisy "broad fallback" is **not** used. Instead, if Lusha's title index returns nothing, the app lists the company and matches your keyword against job titles locally.
+- The contact limit caps how many contacts are **enriched**, not how many are considered — candidates are ranked before the limit is applied, so a match can't be truncated away.
+- Keyword matches are never hidden by the results table's `Show only medium/high fit` filter, and are never removed by the irrelevant-title blocklist.
+
 The app:
 
-1. Searches relevant contacts by target company, discipline/title, location, and optional seniority.
-2. Checks only up to the selected max contact limit.
-3. Scores contacts by seniority and engineering role fit.
+1. Searches relevant contacts by target company, keyword or discipline/title, location, and optional seniority.
+2. Enriches only up to the selected max contact limit.
+3. Scores contacts by keyword match first, then seniority and engineering role fit.
 4. Sorts likely decision makers first.
 5. Provides a suggested warm, non-salesy outreach message.
 6. Lets users select multiple contacts and reveal email addresses and phone numbers in one confirmed batch.
@@ -154,6 +175,23 @@ Classification:
 - `Medium`: 22-34
 - `Low`: 10-21
 - `Unknown`: below 10
+
+## Decision Maker Scoring
+
+Keyword relevance outweighs generic seniority, so the person you searched for outranks an unrelated director at the same company:
+
+- Exact keyword match in job title: +60
+- All keyword terms present: +40
+- Role stem match, e.g. `Temporary Works Coordinator` for `Temporary Works Designer`: +30
+- Chief / founder / owner / partner / managing director: +28
+- Technical director / director / head: +24
+- Associate / associate director: +20
+- Principal / lead / team leader / manager: +18
+- Senior: +10
+- Bridge / structural / geotechnical / rail / highways / infrastructure / civil: +10
+- Engineer / engineering / technical: +6
+
+Junior and non-technical titles are penalised by 20, **except** when they match your keyword — an `Assistant Temporary Works Coordinator` is a hit, not noise.
 
 ## Import Format
 

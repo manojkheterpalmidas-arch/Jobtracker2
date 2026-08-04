@@ -42,6 +42,7 @@ export function ProfileMidasMentionsTable({
 }: ProfileMidasMentionsTableProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showOnlyDecisionMakers, setShowOnlyDecisionMakers] = useState(true);
+  const [onlyKeywordMatches, setOnlyKeywordMatches] = useState(false);
   const [fit, setFit] = useState("");
   const [titleKeyword, setTitleKeyword] = useState("");
   const [roleKeyword, setRoleKeyword] = useState("");
@@ -57,15 +58,26 @@ export function ProfileMidasMentionsTable({
     window.setTimeout(() => setCopiedId(null), 1800);
   }
 
+  // Saved runs created before keyword matching existed have no matchedKeywords,
+  // so every read of it is defaulted rather than assumed.
+  const hasKeywordMatches = useMemo(
+    () => results.some((record) => (record.matchedKeywords ?? []).length > 0),
+    [results]
+  );
+
   const filteredResults = useMemo(() => {
     return results.filter((record) => {
-      if (showOnlyDecisionMakers && record.championFit === "low") return false;
+      const keywordMatched = (record.matchedKeywords ?? []).length > 0;
+      // Never hide a contact the user explicitly searched for, whatever its
+      // seniority score. This filter is why exact keyword matches used to vanish.
+      if (showOnlyDecisionMakers && !keywordMatched && record.championFit === "low") return false;
+      if (onlyKeywordMatches && !keywordMatched) return false;
       if (fit && record.championFit !== fit) return false;
       if (titleKeyword && !record.currentTitle.toLowerCase().includes(titleKeyword.toLowerCase())) return false;
       if (roleKeyword && !record.roleSignals.join(" ").toLowerCase().includes(roleKeyword.toLowerCase())) return false;
       return true;
     });
-  }, [fit, results, roleKeyword, showOnlyDecisionMakers, titleKeyword]);
+  }, [fit, onlyKeywordMatches, results, roleKeyword, showOnlyDecisionMakers, titleKeyword]);
 
   const visibleContactIds = useMemo(
     () => Array.from(new Set(filteredResults.map((record) => record.lushaContactId).filter(Boolean) as string[])),
@@ -270,7 +282,7 @@ export function ProfileMidasMentionsTable({
             </Button>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-[auto_180px_1fr_1fr]">
+        <div className="grid gap-3 md:grid-cols-[auto_auto_180px_1fr_1fr]">
           <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
             <input
               type="checkbox"
@@ -280,6 +292,17 @@ export function ProfileMidasMentionsTable({
             />
             Show only medium/high fit
           </label>
+          {hasKeywordMatches ? (
+            <label className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900 shadow-sm">
+              <input
+                type="checkbox"
+                checked={onlyKeywordMatches}
+                onChange={(event) => setOnlyKeywordMatches(event.target.checked)}
+                className="h-4 w-4 accent-emerald-600"
+              />
+              Keyword matches only
+            </label>
+          ) : null}
           <select
             value={fit}
             onChange={(event) => setFit(event.target.value)}
@@ -358,7 +381,22 @@ export function ProfileMidasMentionsTable({
                   {record.championFit !== "low" ? <Badge variant="info" className="mt-2">Decision maker</Badge> : null}
                 </td>
                 <td className="px-4 py-3 font-medium">{record.currentCompany}</td>
-                <td className="px-4 py-3">{record.currentTitle}</td>
+                <td className="px-4 py-3">
+                  <div>{record.currentTitle}</div>
+                  {(record.matchedKeywords ?? []).length ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {(record.matchedKeywords ?? []).map((keyword) => (
+                        <span
+                          key={keyword}
+                          title={record.exactKeywordMatch ? "Exact keyword match" : "Matched all keyword terms"}
+                          className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800"
+                        >
+                          {record.exactKeywordMatch ? "Exact" : "Close"}: {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3">{record.location || "-"}</td>
                 <td className="px-4 py-3">
                   {record.linkedinUrl ? (

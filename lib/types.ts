@@ -44,6 +44,23 @@ export const titleFilterModeLabels: Record<TitleFilterMode, string> = {
   no_title_filter: "No title filter"
 };
 
+export const keywordModeOptions = ["expanded", "exact", "blended"] as const;
+
+export const keywordModeLabels: Record<KeywordMode, string> = {
+  expanded: "Keyword + close variants (recommended)",
+  exact: "Exact keyword only",
+  blended: "Keyword + seniority titles (old behaviour)"
+};
+
+export const keywordModeDescriptions: Record<KeywordMode, string> = {
+  expanded:
+    "Searches your keyword plus realistic title variants of the same role, then returns only contacts whose title matches your keyword.",
+  exact:
+    "Searches and returns only contacts whose job title contains your keyword exactly. Highest precision, lowest recall.",
+  blended:
+    "Adds your keyword to the generic senior-title list. Widest results, but a specific keyword can get buried."
+};
+
 export const disciplineLabels: Record<Discipline, string> = {
   structural_bridge: "Structural / Bridge / Civil Structures",
   geotechnical: "Geotechnical",
@@ -217,6 +234,7 @@ export type VisibleMovementDirection = (typeof visibleMovementDirectionOptions)[
 export type SignalLookupLimit = (typeof signalLookupLimitOptions)[number];
 export type ProfileMentionContactLimit = (typeof profileMentionContactLimitOptions)[number];
 export type TitleFilterMode = (typeof titleFilterModeOptions)[number];
+export type KeywordMode = (typeof keywordModeOptions)[number];
 export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export type MidasKeywordMode = (typeof midasKeywordModeOptions)[number];
 
@@ -481,6 +499,7 @@ export const ProfileMidasMentionRequestSchema = z
     location: z.string().trim().max(120).optional().or(z.literal("")),
     discipline: z.enum(profileMentionDisciplineOptions),
     customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(40).optional(),
+    keywordMode: z.enum(keywordModeOptions).default("expanded"),
     seniority: z.array(z.string().trim().max(80)).max(8).optional(),
     maxContactsToCheck: z.union([
       z.literal(25),
@@ -520,6 +539,10 @@ export interface ProfileMidasMentionResult {
   championFit: DecisionMakerFit;
   senioritySignals: string[];
   roleSignals: string[];
+  /** Keywords from the search that this contact's job title actually matched. */
+  matchedKeywords: string[];
+  /** True when the job title contains a searched keyword verbatim. */
+  exactKeywordMatch: boolean;
   suggestedAction: string;
   suggestedMessage: string;
   checkedAt: string;
@@ -534,6 +557,10 @@ export interface ProfileMidasMentionResponse {
     highConfidence: number;
     mediumConfidence: number;
     lowConfidence: number;
+    /** Contacts whose job title matched a searched keyword. */
+    keywordMatches: number;
+    /** Contacts Lusha returned that were dropped because they matched no keyword. */
+    filteredOutByKeyword: number;
     apiCallsUsed?: number;
     creditsUsed?: number;
     mockMode: boolean;

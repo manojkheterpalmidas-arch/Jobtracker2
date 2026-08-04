@@ -1,4 +1,21 @@
+import { matchKeywords, type KeywordMatchStrength } from "@/lib/keywordSearch";
 import type { DecisionMakerFit, LushaContact, ProfileMidasMentionResult } from "@/lib/types";
+
+/**
+ * Keyword relevance outweighs generic seniority. A "Temporary Works Designer"
+ * is the person the user searched for, so it must outrank an unrelated Director
+ * at the same company, which the seniority-only score used to do.
+ */
+const EXACT_KEYWORD_BONUS = 60;
+const TOKEN_KEYWORD_BONUS = 40;
+const STEM_KEYWORD_BONUS = 30;
+
+function keywordBonus(strength: KeywordMatchStrength) {
+  if (strength === "exact") return EXACT_KEYWORD_BONUS;
+  if (strength === "all_tokens") return TOKEN_KEYWORD_BONUS;
+  if (strength === "stem") return STEM_KEYWORD_BONUS;
+  return 0;
+}
 
 function titleOf(contact: LushaContact) {
   if (typeof contact.jobTitle === "string") return contact.jobTitle;
@@ -46,10 +63,11 @@ function roleSignals(title: string) {
   return uniqueSignals(signals);
 }
 
-export function decisionMakerScore(contact: LushaContact) {
+export function decisionMakerScore(contact: LushaContact, keywords: string[] = []) {
   const title = titleOf(contact);
   const explicitSeniority = typeof contact.jobTitle === "object" ? contact.jobTitle?.seniority : undefined;
-  let score = 0;
+  const keywordStrength = matchKeywords(title, keywords).strength;
+  let score = keywordBonus(keywordStrength);
 
   if (/\b(chief|ceo|cto|coo|founder|owner|partner|managing director)\b/i.test(title)) score += 28;
   if (/\b(technical director|director|head)\b/i.test(title)) score += 24;
@@ -59,7 +77,11 @@ export function decisionMakerScore(contact: LushaContact) {
   if (/\b(bridge|bridges|structural|structures|civil structures|geotechnical|tunnel|rail|highways|infrastructure|civil)\b/i.test(title)) score += 10;
   if (/\b(engineer|engineering|technical)\b/i.test(title)) score += 6;
   if (explicitSeniority && /\b(owner|director|head|vp|principal|senior)\b/i.test(explicitSeniority)) score += 6;
-  if (/\b(graduate|junior|assistant|trainee|intern|recruiter|hr|marketing|finance)\b/i.test(title)) score -= 20;
+  // Only demote junior/non-technical titles when the user did not explicitly ask
+  // for them. An "Assistant Temporary Works Coordinator" is a hit, not noise.
+  if (keywordStrength === "none" && /\b(graduate|junior|assistant|trainee|intern|recruiter|hr|marketing|finance)\b/i.test(title)) {
+    score -= 20;
+  }
 
   return Math.max(0, score);
 }
@@ -82,11 +104,18 @@ export function decisionMakerMessage(name: string, company: string) {
 
 export function buildProfileMidasMentionResult(
   contact: LushaContact,
-  checkedAt: string
+  checkedAt: string,
+  keywords: string[] = []
 ): ProfileMidasMentionResult {
-  const score = decisionMakerScore(contact);
-  const championFit = classifyDecisionMaker(score);
   const title = titleOf(contact);
+  const keywordMatch = matchKeywords(title, keywords);
+  const score = decisionMakerScore(contact, keywords);
+  // A contact the user explicitly searched for is never "low" — the results
+  // table hides low-fit rows by default, which is how exact matches used to
+  // disappear from the UI even when Lusha had returned them.
+  const championFit = keywordMatch.matchedKeywords.length
+    ? classifyDecisionMaker(Math.max(score, 22))
+    : classifyDecisionMaker(score);
   const personName = nameOf(contact);
   const company = currentCompany(contact);
 
@@ -103,6 +132,8 @@ export function buildProfileMidasMentionResult(
     championFit,
     senioritySignals: senioritySignals(title, typeof contact.jobTitle === "object" ? contact.jobTitle?.seniority : undefined),
     roleSignals: roleSignals(title),
+    matchedKeywords: keywordMatch.matchedKeywords,
+    exactKeywordMatch: keywordMatch.exact,
     suggestedAction: decisionMakerAction(championFit),
     suggestedMessage: decisionMakerMessage(personName, company),
     checkedAt,
