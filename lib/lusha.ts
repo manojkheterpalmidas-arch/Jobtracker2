@@ -1235,13 +1235,25 @@ export async function findProfileMidasMentions(
         : `Keyword search: Lusha was queried for "${userKeywords.join('", "')}" plus close title variants, and results were filtered back to your keyword.`
     );
 
-    // Lusha's jobTitles filter can miss non-standard titles. If the titled
-    // search found nothing, re-query the company without title filters and match
-    // the keyword locally, which is far more forgiving than the server-side index.
-    if (!filteredContacts.length) {
-      // One page is far too small a sample at a firm the size of WSP, so scan
-      // several pages and stop as soon as the keyword is actually found.
-      const scanned: LushaContact[] = [];
+    // Exact mode demands the literal phrase. Expanded mode accepts the role stem,
+    // so a "Temporary Works Coordinator" surfaced by the widened query survives a
+    // search for "Temporary Works Designer" instead of being filtered back out.
+    const exactOnly = params.keywordMode === "exact";
+    const isKeywordMatch = (contact: LushaContact) => {
+      const match = matchKeywords(contactTitle(contact), userKeywords, { allowStem: !exactOnly });
+      return exactOnly ? match.strength === "exact" : match.strength !== "none";
+    };
+
+    let pool = filteredContacts;
+    let matched = pool.filter(isKeywordMatch);
+
+    // Lusha's jobTitles filter matches whole title phrases and under-returns
+    // badly: a search for bridge engineers at a firm the size of WSP came back
+    // with three people. Whenever it yields fewer matches than the user asked to
+    // check, scan the company directly and match locally, which catches the
+    // titles the server-side index misses. Stops as soon as the cap is filled,
+    // so the extra pages are only paid for when they are actually needed.
+    if (matched.length < params.maxContactsToCheck) {
       let pagesScanned = 0;
 
       for (let page = 0; page < KEYWORD_FALLBACK_PAGES; page += 1) {
@@ -1253,39 +1265,37 @@ export async function findProfileMidasMentions(
           fallbackUsed = true;
           pagesScanned += 1;
           fallbackApiCalls += 1;
-          scanned.push(...pageContacts);
           fallbackCreditsUsed += pageResult.billing?.creditsCharged ?? 0;
 
+          pool = mergeContacts(pool, pageContacts);
+          matched = pool.filter(isKeywordMatch);
+
           if (!pageContacts.length) break;
-          if (scanned.some((contact) => matchKeywords(contactTitle(contact), userKeywords).strength !== "none")) break;
+          if (matched.length >= params.maxContactsToCheck) break;
         } catch {
           break;
         }
       }
 
-      contacts = mergeContacts(scanned);
-
-      warnings.push(
-        pagesScanned
-          ? `Keyword recall fallback used: Lusha's title filter returned nothing, so the app scanned ${contacts.length} contacts at the target company across ${pagesScanned} ${pagesScanned === 1 ? "page" : "pages"} and matched your keyword against job titles locally.`
-          : "Keyword recall fallback failed, so only the title-filtered contacts were scored."
-      );
+      if (pagesScanned) {
+        warnings.push(
+          `Keyword recall scan: Lusha's title filter returned only ${filteredContacts.length} contact${filteredContacts.length === 1 ? "" : "s"}, so the app also listed the target company and matched your keyword locally against ${pool.length} contacts across ${pagesScanned} ${pagesScanned === 1 ? "page" : "pages"}.`
+        );
+      }
     }
 
-    // Exact mode demands the literal phrase. Expanded mode accepts the role stem,
-    // so a "Temporary Works Coordinator" surfaced by the widened query survives a
-    // search for "Temporary Works Designer" instead of being filtered back out.
-    const exactOnly = params.keywordMode === "exact";
-    const beforeKeywordFilter = contacts.length;
-    contacts = contacts.filter((contact) => {
-      const match = matchKeywords(contactTitle(contact), userKeywords, { allowStem: !exactOnly });
-      return exactOnly ? match.strength === "exact" : match.strength !== "none";
-    });
-    filteredOutByKeyword = beforeKeywordFilter - contacts.length;
+    filteredOutByKeyword = pool.length - matched.length;
+    contacts = matched;
 
     if (filteredOutByKeyword > 0) {
       warnings.push(
-        `${filteredOutByKeyword} contact${filteredOutByKeyword === 1 ? " was" : "s were"} returned by Lusha but dropped because the job title did not match your keyword.`
+        `${filteredOutByKeyword} contact${filteredOutByKeyword === 1 ? " was" : "s were"} scanned but dropped because the job title did not match your keyword.`
+      );
+    }
+
+    if (!matched.length) {
+      warnings.push(
+        "If you expected more people here, the location filter is the most likely cause — try a country instead of a city, or clear it."
       );
     }
   } else if (filteredContacts.length < params.maxContactsToCheck) {
