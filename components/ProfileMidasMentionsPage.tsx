@@ -220,6 +220,17 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     }));
   }, []);
   const companyDomains = parseDomains(companyDomainsText);
+  const summaryCards: Array<{ label: string; value: string | number }> = response
+    ? [
+      { label: "Contacts checked", value: response.summary.contactsChecked },
+      response.summary.keywordMatches
+        ? { label: "Keyword matches", value: response.summary.keywordMatches }
+        : { label: "Decision makers found", value: response.summary.decisionMakersFound },
+      { label: "High-fit contacts", value: response.summary.highConfidence },
+      { label: "Medium-fit contacts", value: response.summary.mediumConfidence },
+      { label: "Credits/API calls", value: `${response.summary.creditsUsed ?? 0} / ${response.summary.apiCallsUsed ?? 0}` }
+    ]
+    : [];
 
   return (
     <div className="grid gap-5">
@@ -429,15 +440,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
 
       {response ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {([
-            ["Contacts checked", response.summary.contactsChecked],
-            ...(response.summary.keywordMatches
-              ? [["Keyword matches", response.summary.keywordMatches] as [string, number]]
-              : [["Decision makers found", response.summary.decisionMakersFound] as [string, number]]),
-            ["High-fit contacts", response.summary.highConfidence],
-            ["Medium-fit contacts", response.summary.mediumConfidence],
-            ["Credits/API calls", `${response.summary.creditsUsed ?? 0} / ${response.summary.apiCallsUsed ?? 0}`]
-          ] as Array<[string, string | number]>).map(([label, value]) => (
+          {summaryCards.map(({ label, value }) => (
             <Card key={label} className="bg-white transition hover:border-slate-300 hover:shadow-subtle">
               <CardContent className="p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>

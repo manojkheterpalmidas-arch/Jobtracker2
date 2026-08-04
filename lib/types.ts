@@ -557,10 +557,14 @@ export interface ProfileMidasMentionResponse {
     highConfidence: number;
     mediumConfidence: number;
     lowConfidence: number;
-    /** Contacts whose job title matched a searched keyword. */
-    keywordMatches: number;
+    /**
+     * Contacts whose job title matched a searched keyword. Optional because
+     * saved runs restored from history predate keyword matching and cannot
+     * report it — absent means unknown, not zero.
+     */
+    keywordMatches?: number;
     /** Contacts Lusha returned that were dropped because they matched no keyword. */
-    filteredOutByKeyword: number;
+    filteredOutByKeyword?: number;
     apiCallsUsed?: number;
     creditsUsed?: number;
     mockMode: boolean;
