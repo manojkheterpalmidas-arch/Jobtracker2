@@ -32,6 +32,12 @@ const MAX_RESULTS = 50;
  * the role genuinely is not present at the target company.
  */
 const KEYWORD_FALLBACK_PAGES = 4;
+/**
+ * Ceiling on per-contact enrichment calls in one decision-maker search. The
+ * result only needs fields the prospecting response already carries, so this is
+ * a top-up for partial profiles rather than a required step.
+ */
+const MAX_ENRICHMENT_CALLS = 10;
 
 type LushaBilling = {
   creditsCharged?: number;
@@ -1145,6 +1151,20 @@ function summarizeProfileMentionResults(
   };
 }
 
+/**
+ * True only when the prospecting record is missing something the results table
+ * actually displays. Everything else is already known and needs no API call.
+ */
+function needsEnrichment(contact: LushaContact) {
+  const title = contactTitle(contact);
+  const hasTitle = Boolean(title) && title !== "Unknown title";
+  const hasLinkedin = Boolean(contact.socialLinks?.linkedin || contact.linkedinUrl);
+  const hasLocation = Boolean(contact.location?.city || contact.location?.state || contact.location?.country);
+  const hasName = Boolean(contact.fullName || contact.firstName || contact.lastName);
+
+  return !hasTitle || !hasLinkedin || !hasLocation || !hasName;
+}
+
 function extractContacts(response: LushaContactSearchResponse) {
   return response.results ?? response.contacts ?? [];
 }
@@ -1339,9 +1359,22 @@ export async function findProfileMidasMentions(
   contacts = contacts.slice(0, params.maxContactsToCheck);
   const enrichedContacts: LushaContact[] = [];
   let enrichmentAttempts = 0;
+  let enrichmentSkipped = 0;
 
+  // Enrichment costs one API call per contact, and the decision-maker result
+  // uses only fields prospecting already returns (name, title, company,
+  // location, LinkedIn). Keyword matching also runs on the prospecting title,
+  // so enriching cannot change who matches. Enrich only contacts genuinely
+  // missing something displayable, and cap it: a 45-contact search was costing
+  // 50 API calls, of which 45 were enrichment that changed nothing.
   for (const contact of contacts) {
-    if (!contact.id) {
+    if (!contact.id || !needsEnrichment(contact)) {
+      enrichedContacts.push(contact);
+      continue;
+    }
+
+    if (enrichmentAttempts >= MAX_ENRICHMENT_CALLS) {
+      enrichmentSkipped += 1;
       enrichedContacts.push(contact);
       continue;
     }
@@ -1357,6 +1390,12 @@ export async function findProfileMidasMentions(
     } catch {
       enrichedContacts.push(contact);
     }
+  }
+
+  if (enrichmentSkipped) {
+    warnings.push(
+      `${enrichmentSkipped} contact${enrichmentSkipped === 1 ? " was" : "s were"} left unenriched to limit API calls. Their name, title, company and location come from the search result; use Get email & phone to reveal details for the ones you care about.`
+    );
   }
 
   const results = enrichedContacts
