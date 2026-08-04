@@ -57,7 +57,44 @@ const ROLE_SUFFIXES = [
 /** Seniority prefixes applied to the keyword itself. */
 const SENIORITY_PREFIXES = ["Senior", "Principal", "Lead", "Associate", "Head of"];
 
-const MAX_EXPANDED_KEYWORDS = 60;
+/**
+ * Lusha's jobTitles filter matches real job-title strings, not substrings, so a
+ * shorthand keyword must be widened into the words people actually put in their
+ * title. Searching "Geotech" returned nothing precisely because no one's title
+ * says "Geotech" — it says "Geotechnical Engineer".
+ *
+ * Keys are normalised; values are the full-word forms to query as well.
+ */
+const DISCIPLINE_SYNONYMS: Record<string, string[]> = {
+  geotech: ["Geotechnical", "Geotechnics", "Ground Engineering"],
+  geotechnical: ["Geotechnics", "Ground Engineering"],
+  geotechnics: ["Geotechnical", "Ground Engineering"],
+  struct: ["Structural", "Structures"],
+  structural: ["Structures"],
+  structures: ["Structural"],
+  bridge: ["Bridges"],
+  bridges: ["Bridge"],
+  civil: ["Civils"],
+  civils: ["Civil"],
+  tw: ["Temporary Works"],
+  "temp works": ["Temporary Works"],
+  "temporary works": ["Temporary Works"],
+  tunnel: ["Tunnelling", "Tunnels", "Tunnelling and Underground"],
+  tunnels: ["Tunnelling", "Tunnel"],
+  tunnelling: ["Tunnel", "Tunnels"],
+  rail: ["Railway", "Rail and Civils"],
+  highway: ["Highways"],
+  highways: ["Highway"],
+  seismic: ["Earthquake", "Seismic Design"],
+  fea: ["Finite Element", "Finite Element Analysis"],
+  cad: ["CAD", "Design Technician"],
+  bim: ["BIM", "Digital Engineering"]
+};
+
+/** Suffixes tried first, because they cover most real engineering titles. */
+const PRIORITY_SUFFIXES = ["Engineer", "Manager", "Director", "Lead"];
+
+const MAX_EXPANDED_KEYWORDS = 80;
 
 export function normalizeTitleText(value = "") {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
@@ -203,24 +240,47 @@ export function expandKeywords(keywords: string[]): string[] {
     expanded.push(cleaned);
   }
 
+  // The literal keywords always go first so they are never lost to the cap.
   for (const keyword of keywords) {
     push(keyword);
   }
 
-  for (const keyword of keywords) {
+  // Each keyword yields a set of base terms: its own role stem plus any
+  // full-word discipline forms, e.g. "Geotech" -> Geotechnical, Geotechnics.
+  const basesByKeyword = keywords.map((keyword) => {
     const stem = keywordStem(keyword);
-    const base = stem || normalizeTitleText(keyword);
+    const root = stem || normalizeTitleText(keyword);
+    const synonyms = [
+      ...(DISCIPLINE_SYNONYMS[root] ?? []),
+      ...(DISCIPLINE_SYNONYMS[normalizeTitleText(keyword)] ?? [])
+    ];
 
-    if (!base) continue;
+    return {
+      keyword,
+      bases: Array.from(new Set([root, ...synonyms.map(normalizeTitleText)].filter(Boolean)))
+    };
+  });
 
-    const displayBase = titleCase(base);
+  // Bare discipline terms next: "Geotechnical" on its own is a common title word.
+  for (const { bases } of basesByKeyword) {
+    for (const base of bases) push(titleCase(base));
+  }
 
-    for (const suffix of ROLE_SUFFIXES) {
-      push(`${displayBase} ${suffix}`);
+  for (const { bases } of basesByKeyword) {
+    for (const base of bases) {
+      for (const suffix of PRIORITY_SUFFIXES) push(`${titleCase(base)} ${suffix}`);
     }
+  }
 
-    for (const prefix of SENIORITY_PREFIXES) {
-      push(`${prefix} ${titleCase(normalizeTitleText(keyword))}`);
+  for (const { bases } of basesByKeyword) {
+    for (const base of bases) {
+      for (const suffix of ROLE_SUFFIXES) push(`${titleCase(base)} ${suffix}`);
+    }
+  }
+
+  for (const { bases } of basesByKeyword) {
+    for (const base of bases) {
+      for (const prefix of SENIORITY_PREFIXES) push(`${prefix} ${titleCase(base)} Engineer`);
     }
   }
 

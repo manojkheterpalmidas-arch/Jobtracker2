@@ -26,6 +26,12 @@ import {
 
 const LUSHA_BASE_URL = "https://api.lusha.com";
 const MAX_RESULTS = 50;
+/**
+ * Pages the keyword recall fallback will scan before giving up. Scanning stops
+ * early as soon as a keyword match is found, so the full cost is only paid when
+ * the role genuinely is not present at the target company.
+ */
+const KEYWORD_FALLBACK_PAGES = 4;
 
 type LushaBilling = {
   creditsCharged?: number;
@@ -633,11 +639,17 @@ function buildCompanyContactPayload(
 
 export async function searchContactsInCompany(
   params: ProfileMidasMentionOptions,
-  options?: { mode?: CompanyContactSearchMode }
+  options?: { mode?: CompanyContactSearchMode; page?: number }
 ) {
+  const payload = buildCompanyContactPayload(params, options?.mode ?? "titled");
+
+  if (options?.page) {
+    payload.pagination.page = options.page;
+  }
+
   return lushaFetch<LushaContactSearchResponse>("/v3/contacts/prospecting", {
     method: "POST",
-    body: JSON.stringify(buildCompanyContactPayload(params, options?.mode ?? "titled"))
+    body: JSON.stringify(payload)
   }, params.localLushaApiKey);
 }
 
@@ -1213,6 +1225,8 @@ export async function findProfileMidasMentions(
   let fallbackSearch: LushaContactSearchResponse | undefined;
   let fallbackUsed = false;
   let filteredOutByKeyword = 0;
+  let fallbackCreditsUsed = 0;
+  let fallbackApiCalls = 0;
 
   if (keywordDriven) {
     warnings.push(
@@ -1225,16 +1239,37 @@ export async function findProfileMidasMentions(
     // search found nothing, re-query the company without title filters and match
     // the keyword locally, which is far more forgiving than the server-side index.
     if (!filteredContacts.length) {
-      try {
-        fallbackSearch = await searchContactsInCompany(params, { mode: "company_only" });
-        contacts = extractContacts(fallbackSearch);
-        fallbackUsed = true;
-        warnings.push(
-          "Keyword recall fallback used: Lusha's title filter returned nothing, so the app listed the target company and matched your keyword against job titles locally."
-        );
-      } catch {
-        warnings.push("Keyword recall fallback failed, so only the title-filtered contacts were scored.");
+      // One page is far too small a sample at a firm the size of WSP, so scan
+      // several pages and stop as soon as the keyword is actually found.
+      const scanned: LushaContact[] = [];
+      let pagesScanned = 0;
+
+      for (let page = 0; page < KEYWORD_FALLBACK_PAGES; page += 1) {
+        try {
+          const pageResult = await searchContactsInCompany(params, { mode: "company_only", page });
+          const pageContacts = extractContacts(pageResult);
+
+          fallbackSearch = pageResult;
+          fallbackUsed = true;
+          pagesScanned += 1;
+          fallbackApiCalls += 1;
+          scanned.push(...pageContacts);
+          fallbackCreditsUsed += pageResult.billing?.creditsCharged ?? 0;
+
+          if (!pageContacts.length) break;
+          if (scanned.some((contact) => matchKeywords(contactTitle(contact), userKeywords).strength !== "none")) break;
+        } catch {
+          break;
+        }
       }
+
+      contacts = mergeContacts(scanned);
+
+      warnings.push(
+        pagesScanned
+          ? `Keyword recall fallback used: Lusha's title filter returned nothing, so the app scanned ${contacts.length} contacts at the target company across ${pagesScanned} ${pagesScanned === 1 ? "page" : "pages"} and matched your keyword against job titles locally.`
+          : "Keyword recall fallback failed, so only the title-filtered contacts were scored."
+      );
     }
 
     // Exact mode demands the literal phrase. Expanded mode accepts the role stem,
@@ -1323,8 +1358,9 @@ export async function findProfileMidasMentions(
     results,
     summary: summarizeProfileMentionResults(
       results,
-      1 + (fallbackUsed ? 1 : 0) + enrichmentAttempts,
-      (contactSearch.billing?.creditsCharged ?? 0) + (fallbackSearch?.billing?.creditsCharged ?? 0),
+      1 + (fallbackApiCalls || (fallbackUsed ? 1 : 0)) + enrichmentAttempts,
+      (contactSearch.billing?.creditsCharged ?? 0) +
+        (fallbackCreditsUsed || (fallbackSearch?.billing?.creditsCharged ?? 0)),
       false,
       filteredOutByKeyword
     ),
