@@ -367,6 +367,160 @@ export async function revealContactDetails(params: {
   };
 }
 
+/**
+ * Lusha enriches many contact IDs in one call. Batches are kept well under the
+ * documented cap so a large bulk selection cannot be rejected outright, and each
+ * batch is one API call rather than one call per contact.
+ */
+const BULK_ENRICH_BATCH_SIZE = 25;
+
+function contactRecordsFrom(data: Record<string, unknown>) {
+  for (const key of ["contacts", "data", "results", "items"]) {
+    const value = data[key];
+
+    if (Array.isArray(value)) {
+      return value.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object");
+    }
+
+    // Some responses key the contacts object by the requested ID instead.
+    if (value && typeof value === "object") {
+      return Object.entries(value as Record<string, unknown>)
+        .filter(([, entry]) => Boolean(entry) && typeof entry === "object")
+        .map(([contactId, entry]) => ({ contactId, ...(entry as Record<string, unknown>) }));
+    }
+  }
+
+  return [];
+}
+
+function innerContactRecord(record: Record<string, unknown>) {
+  for (const key of ["data", "contact", "person", "profile"]) {
+    const inner = record[key];
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+      return inner as Record<string, unknown>;
+    }
+  }
+
+  return {};
+}
+
+function contactIdFrom(record: Record<string, unknown>, inner: Record<string, unknown>) {
+  for (const source of [record, inner]) {
+    for (const key of ["id", "contactId", "contact_id", "requestedId"]) {
+      const value = source[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function recordErrorFrom(record: Record<string, unknown>) {
+  if (record.isSuccess === false || record.success === false) {
+    return typeof record.error === "string" ? record.error : "Lusha returned no data for this contact.";
+  }
+
+  if (typeof record.error === "string" && record.error.trim()) return record.error.trim();
+
+  const error = record.error;
+  if (error && typeof error === "object" && typeof (error as Record<string, unknown>).message === "string") {
+    return (error as Record<string, string>).message;
+  }
+
+  return "";
+}
+
+export type BulkRevealOutcome = {
+  details: RevealedContactDetails[];
+  /** Requested IDs Lusha returned nothing for, keyed to the reason when it gave one. */
+  failures: Array<{ contactId: string; error: string }>;
+  creditsUsed: number;
+  apiCallsUsed: number;
+};
+
+/**
+ * Reveals email addresses and phone numbers for many contacts using batched
+ * Lusha enrich calls. Credits are charged per contact by Lusha but reported per
+ * batch, so the batch total is attributed evenly across the contacts it covered.
+ */
+export async function revealContactDetailsBulk(params: {
+  contactIds: string[];
+  reveal: ContactRevealField[];
+  localLushaApiKey?: string;
+}): Promise<BulkRevealOutcome> {
+  const contactIds = Array.from(new Set(params.contactIds.map((id) => id.trim()).filter(Boolean)));
+  const details: RevealedContactDetails[] = [];
+  const failures: Array<{ contactId: string; error: string }> = [];
+  let creditsUsed = 0;
+  let apiCallsUsed = 0;
+
+  for (let start = 0; start < contactIds.length; start += BULK_ENRICH_BATCH_SIZE) {
+    const batch = contactIds.slice(start, start + BULK_ENRICH_BATCH_SIZE);
+    const data = await lushaFetch<Record<string, unknown>>("/v3/contacts/enrich", {
+      method: "POST",
+      body: JSON.stringify({
+        ids: batch,
+        reveal: params.reveal
+      })
+    }, params.localLushaApiKey);
+
+    apiCallsUsed += 1;
+
+    const records = contactRecordsFrom(data);
+    const billing = data.billing && typeof data.billing === "object" ? data.billing as LushaBilling : undefined;
+    const batchCredits = billing?.creditsCharged ?? 0;
+    creditsUsed += batchCredits;
+
+    const batchDetails: RevealedContactDetails[] = [];
+    const seenIds = new Set<string>();
+
+    records.forEach((record, index) => {
+      const inner = innerContactRecord(record);
+      // Positional fallback is only safe when Lusha echoed one record per ID.
+      const positionalId = records.length === batch.length ? batch[index] : "";
+      const contactId = contactIdFrom(record, inner) || positionalId;
+
+      if (!contactId || !batch.includes(contactId)) return;
+
+      seenIds.add(contactId);
+
+      const error = recordErrorFrom(record);
+
+      if (error) {
+        failures.push({ contactId, error });
+        return;
+      }
+
+      batchDetails.push({
+        contactId,
+        emails: collectStringValues(
+          record.emails, record.email, record.workEmail, record.emailAddresses,
+          inner.emails, inner.email, inner.workEmail, inner.emailAddresses
+        ),
+        phones: collectStringValues(
+          record.phones, record.phoneNumbers, record.phone, record.mobilePhone, record.directDial,
+          inner.phones, inner.phoneNumbers, inner.phone, inner.mobilePhone, inner.directDial
+        ),
+        // The batch made one API call in total, so per-contact call counts stay
+        // at zero and the caller reports the real batch count instead.
+        apiCallsUsed: 0,
+        source: "Lusha"
+      });
+    });
+
+    const perContactCredits = batchDetails.length ? batchCredits / batchDetails.length : 0;
+    batchDetails.forEach((detail) => {
+      details.push({ ...detail, creditsUsed: Number(perContactCredits.toFixed(3)) });
+    });
+
+    batch
+      .filter((contactId) => !seenIds.has(contactId))
+      .forEach((contactId) => failures.push({ contactId, error: "Lusha returned no record for this contact." }));
+  }
+
+  return { details, failures, creditsUsed, apiCallsUsed };
+}
+
 function selectedTitleKeywords(request: SearchRequest) {
   if (request.titleFilterMode === "no_title_filter") {
     return [];

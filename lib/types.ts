@@ -296,6 +296,54 @@ export interface RevealedContactDetails {
   source: "Lusha";
 }
 
+/** Upper bound on contact IDs accepted by one bulk reveal request. */
+export const maxBulkRevealContacts = 100;
+
+export const BulkRevealRequestSchema = z.object({
+  contactIds: z.array(z.string().trim().min(1).max(160)).min(1).max(maxBulkRevealContacts),
+  reveal: z.array(z.enum(["emails", "phones"])).min(1).max(2).default(["emails", "phones"]),
+  localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
+});
+
+export type BulkRevealRequest = z.infer<typeof BulkRevealRequestSchema>;
+
+export type BulkRevealStatus = "revealed" | "cached" | "empty" | "failed";
+
+export interface BulkRevealContactResult {
+  contactId: string;
+  status: BulkRevealStatus;
+  details?: RevealedContactDetails;
+  error?: string;
+}
+
+export interface BulkRevealResponse {
+  results: BulkRevealContactResult[];
+  summary: {
+    requested: number;
+    revealed: number;
+    cached: number;
+    empty: number;
+    failed: number;
+    notPersisted: number;
+    creditsUsed: number;
+    apiCallsUsed: number;
+  };
+  warnings: string[];
+}
+
+/** A person the bulk tab can look up, normalised from any result table. */
+export interface BulkContactCandidate {
+  id: string;
+  lushaContactId?: string;
+  personName: string;
+  company: string;
+  companyDomain?: string;
+  title: string;
+  location?: string;
+  linkedinUrl?: string;
+  sourceLabel: string;
+}
+
 export interface LushaSignal {
   id?: string;
   type?: string;

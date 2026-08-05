@@ -1,7 +1,8 @@
 "use client";
 
-import { Activity, AlertTriangle, BriefcaseBusiness, Database, History, Loader2, LockKeyhole, Server, ShieldCheck, Sparkles, Target, X } from "lucide-react";
+import { Activity, AlertTriangle, BriefcaseBusiness, Database, History, Loader2, LockKeyhole, Server, ShieldCheck, Sparkles, Target, Users, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { BulkContactsPage } from "@/components/BulkContactsPage";
 import { ChampionResultsTable } from "@/components/ChampionResultsTable";
 import { MidasAccountDatabase } from "@/components/MidasAccountDatabase";
 import { ProfileMidasMentionsPage } from "@/components/ProfileMidasMentionsPage";
@@ -152,9 +153,10 @@ export function TrackerDashboard() {
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
   const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
   const [savedPanelOpen, setSavedPanelOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"jobChanges" | "profile" | "accounts">("jobChanges");
+  const [activeTab, setActiveTab] = useState<"jobChanges" | "profile" | "bulk" | "accounts">("jobChanges");
   const [loadedRequest, setLoadedRequest] = useState<SharedSearchDraft | null>(null);
   const [profileMentionResponse, setProfileMentionResponse] = useState<ProfileMidasMentionResponse | null>(null);
+  const [decisionMakerResults, setDecisionMakerResults] = useState<ProfileMidasMentionResult[]>([]);
   const [revealedContactDetails, setRevealedContactDetails] = useState<Record<string, RevealedContactDetails>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -192,7 +194,8 @@ export function TrackerDashboard() {
     setError(null);
     setLoadedRequest(payload);
     setProfileMentionResponse(null);
-    setRevealedContactDetails({});
+    // Revealed details are keyed by Lusha contact ID and shared with the bulk
+    // tab, so a new search must not throw away details already paid for.
 
     try {
       const result = await fetch("/api/search-champions", {
@@ -220,7 +223,6 @@ export function TrackerDashboard() {
   async function handleViewSavedResults(id: string) {
     setLoadingRunId(id);
     setError(null);
-    setRevealedContactDetails({});
 
     try {
       const result = await fetch(`/api/search-runs?id=${encodeURIComponent(id)}`, {
@@ -451,7 +453,7 @@ export function TrackerDashboard() {
 
         <div className="grid content-start gap-6">
           <nav className="grid gap-3 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-subtle lg:grid-cols-[1fr_auto]">
-            <div className="grid gap-1 rounded-xl bg-slate-100 p-1 sm:inline-grid sm:grid-cols-2">
+            <div className="grid gap-1 rounded-xl bg-slate-100 p-1 sm:inline-grid sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setActiveTab("jobChanges")}
@@ -476,6 +478,18 @@ export function TrackerDashboard() {
                 <Target className="h-4 w-4" aria-hidden="true" />
                 Decision Makers
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("bulk")}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+                  activeTab === "bulk"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+                }`}
+              >
+                <Users className="h-4 w-4" aria-hidden="true" />
+                Emails &amp; Phones
+              </button>
             </div>
             <Button
               type="button"
@@ -490,11 +504,21 @@ export function TrackerDashboard() {
 
           {activeTab === "accounts" ? (
             <MidasAccountDatabase />
+          ) : activeTab === "bulk" ? (
+            <BulkContactsPage
+              decisionMakerResults={decisionMakerResults}
+              jobChangeResults={response?.results ?? []}
+              revealedContactDetails={revealedContactDetails}
+              onRevealedContactDetailsChange={handleRevealedContactDetailsChange}
+            />
           ) : activeTab === "profile" ? (
             <ProfileMidasMentionsPage
               initialResponse={profileMentionResponse}
               initialRequest={loadedRequest}
               onDraftChange={updateSharedDraft}
+              onResultsChange={setDecisionMakerResults}
+              revealedContactDetails={revealedContactDetails}
+              onRevealedContactDetailsChange={handleRevealedContactDetailsChange}
             />
           ) : (
             <>
