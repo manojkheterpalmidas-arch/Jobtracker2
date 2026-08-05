@@ -44,10 +44,18 @@ export const titleFilterModeLabels: Record<TitleFilterMode, string> = {
   no_title_filter: "No title filter"
 };
 
-export const keywordModeOptions = ["expanded", "exact", "blended"] as const;
+/**
+ * Upper bound on the job-title keyword list. The whole list is OR'd, so a long
+ * discipline list is a legitimate way to search; this only stops a paste large
+ * enough to make the Lusha payload unreasonable.
+ */
+export const maxTitleKeywords = 120;
+
+export const keywordModeOptions = ["expanded", "any", "exact", "blended"] as const;
 
 export const keywordModeLabels: Record<KeywordMode, string> = {
   expanded: "Keyword + close variants (recommended)",
+  any: "Any keyword word (broadest)",
   exact: "Exact keyword only",
   blended: "Keyword + seniority titles (old behaviour)"
 };
@@ -55,6 +63,8 @@ export const keywordModeLabels: Record<KeywordMode, string> = {
 export const keywordModeDescriptions: Record<KeywordMode, string> = {
   expanded:
     "Searches your keyword plus realistic title variants of the same role, then returns only contacts whose title matches your keyword.",
+  any:
+    "OR logic across your whole list: a title matches if it contains any distinctive word from any keyword. Generic role words such as engineer, manager and director are ignored so they cannot match everyone.",
   exact:
     "Searches and returns only contacts whose job title contains your keyword exactly. Highest precision, lowest recall.",
   blended:
@@ -217,7 +227,7 @@ export const SearchRequestSchema = z
     boostMidasMentions: z.boolean().default(true),
     onlyKnownMidasAccounts: z.boolean().default(true),
     showUnknownPreviousCompanies: z.boolean().default(false),
-    customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(40).optional(),
+    customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(maxTitleKeywords).optional(),
     seniority: z.array(z.string().trim().max(80)).max(8).optional(),
     localLushaApiKey: z.string().trim().max(300).optional().or(z.literal(""))
   })
@@ -498,7 +508,7 @@ export const ProfileMidasMentionRequestSchema = z
     companyName: z.string().trim().max(120).optional().or(z.literal("")),
     location: z.string().trim().max(120).optional().or(z.literal("")),
     discipline: z.enum(profileMentionDisciplineOptions),
-    customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(40).optional(),
+    customTitleKeywords: z.array(z.string().trim().min(1).max(100)).max(maxTitleKeywords).optional(),
     keywordMode: z.enum(keywordModeOptions).default("expanded"),
     seniority: z.array(z.string().trim().max(80)).max(8).optional(),
     maxContactsToCheck: z.union([

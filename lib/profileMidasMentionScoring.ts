@@ -1,4 +1,4 @@
-import { matchKeywords, type KeywordMatchStrength } from "@/lib/keywordSearch";
+import { matchKeywords, type KeywordMatchOptions, type KeywordMatchStrength } from "@/lib/keywordSearch";
 import type { DecisionMakerFit, LushaContact, ProfileMidasMentionResult } from "@/lib/types";
 
 /**
@@ -9,11 +9,14 @@ import type { DecisionMakerFit, LushaContact, ProfileMidasMentionResult } from "
 const EXACT_KEYWORD_BONUS = 60;
 const TOKEN_KEYWORD_BONUS = 40;
 const STEM_KEYWORD_BONUS = 30;
+/** A single distinctive word is the weakest match, so it ranks below the rest. */
+const WORD_KEYWORD_BONUS = 20;
 
 function keywordBonus(strength: KeywordMatchStrength) {
   if (strength === "exact") return EXACT_KEYWORD_BONUS;
   if (strength === "all_tokens") return TOKEN_KEYWORD_BONUS;
   if (strength === "stem") return STEM_KEYWORD_BONUS;
+  if (strength === "word") return WORD_KEYWORD_BONUS;
   return 0;
 }
 
@@ -63,10 +66,14 @@ function roleSignals(title: string) {
   return uniqueSignals(signals);
 }
 
-export function decisionMakerScore(contact: LushaContact, keywords: string[] = []) {
+export function decisionMakerScore(
+  contact: LushaContact,
+  keywords: string[] = [],
+  matchOptions: KeywordMatchOptions = {}
+) {
   const title = titleOf(contact);
   const explicitSeniority = typeof contact.jobTitle === "object" ? contact.jobTitle?.seniority : undefined;
-  const keywordStrength = matchKeywords(title, keywords).strength;
+  const keywordStrength = matchKeywords(title, keywords, matchOptions).strength;
   let score = keywordBonus(keywordStrength);
 
   if (/\b(chief|ceo|cto|coo|founder|owner|partner|managing director)\b/i.test(title)) score += 28;
@@ -105,11 +112,12 @@ export function decisionMakerMessage(name: string, company: string) {
 export function buildProfileMidasMentionResult(
   contact: LushaContact,
   checkedAt: string,
-  keywords: string[] = []
+  keywords: string[] = [],
+  matchOptions: KeywordMatchOptions = {}
 ): ProfileMidasMentionResult {
   const title = titleOf(contact);
-  const keywordMatch = matchKeywords(title, keywords);
-  const score = decisionMakerScore(contact, keywords);
+  const keywordMatch = matchKeywords(title, keywords, matchOptions);
+  const score = decisionMakerScore(contact, keywords, matchOptions);
   // A contact the user explicitly searched for is never "low" — the results
   // table hides low-fit rows by default, which is how exact matches used to
   // disappear from the UI even when Lusha had returned them.

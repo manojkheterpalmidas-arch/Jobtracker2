@@ -6,6 +6,7 @@ import {
   keywordModeDescriptions,
   keywordModeLabels,
   keywordModeOptions,
+  maxTitleKeywords as MAX_TITLE_KEYWORDS,
   profileMentionContactLimitOptions,
   profileMentionDisciplineLabels,
   profileMentionDisciplineOptions,
@@ -220,6 +221,7 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
     }));
   }, []);
   const companyDomains = parseDomains(companyDomainsText);
+  const titleKeywordCount = parseKeywords(customTitleKeywords).length;
   const summaryCards: Array<{ label: string; value: string | number }> = response
     ? [
       { label: "Contacts checked", value: response.summary.contactsChecked },
@@ -384,8 +386,13 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
                     className="min-h-24 rounded-xl border-slate-200 bg-white"
                   />
                   <p className="text-xs text-muted-foreground">
-                    One per line or comma separated. When you enter a keyword, results are restricted to job titles that match it — seniority below is used only to rank those matches.
+                    One per line or comma separated, up to {MAX_TITLE_KEYWORDS}. Keywords are OR&apos;d: a contact is kept if their title matches any one of them. Seniority below is used only to rank those matches.
                   </p>
+                  {titleKeywordCount > MAX_TITLE_KEYWORDS ? (
+                    <p className="text-xs font-medium text-red-600" role="alert">
+                      Remove {titleKeywordCount - MAX_TITLE_KEYWORDS} {titleKeywordCount - MAX_TITLE_KEYWORDS === 1 ? "keyword" : "keywords"} to continue — {titleKeywordCount} entered.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-2">
@@ -429,7 +436,11 @@ export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDr
             </section>
 
             <div className="-mx-6 -mb-6 flex justify-start border-t border-slate-200/80 bg-slate-50/70 px-6 py-4">
-              <Button type="submit" disabled={loading || companyDomains.length > 20} className="h-11 w-full px-5 sm:w-fit">
+              <Button
+                type="submit"
+                disabled={loading || companyDomains.length > 20 || titleKeywordCount > MAX_TITLE_KEYWORDS}
+                className="h-11 w-full px-5 sm:w-fit"
+              >
                 <Search className="h-4 w-4" aria-hidden="true" />
                 {loading ? "Finding decision makers..." : "Find decision makers"}
               </Button>

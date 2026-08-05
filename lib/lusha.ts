@@ -8,7 +8,15 @@ import {
   scoreContactJobChange,
   suggestedSalesAction
 } from "@/lib/scoring";
-import { cleanKeywords, expandKeywords, matchKeywords } from "@/lib/keywordSearch";
+import {
+  anyKeywordQueryTerms,
+  cleanKeywords,
+  distinctiveTokens,
+  expandKeywords,
+  matchKeywords,
+  MAX_EXPANDED_KEYWORDS,
+  type KeywordMatchOptions
+} from "@/lib/keywordSearch";
 import {
   defaultTitleKeywords,
   type ContactRevealField,
@@ -478,14 +486,32 @@ function isKeywordDrivenSearch(params: ProfileMidasMentionOptions) {
   return mode !== "blended" && profileUserKeywords(params).length > 0;
 }
 
+/**
+ * How a returned title is matched back against the user's keywords.
+ * `exact` demands the literal phrase, `any` accepts a single distinctive word of
+ * any keyword (OR logic across the whole list), everything else keeps the
+ * phrase-or-role-stem behaviour.
+ */
+function keywordMatchOptions(params: ProfileMidasMentionOptions): KeywordMatchOptions {
+  const mode = params.keywordMode ?? "expanded";
+  return {
+    allowStem: mode !== "exact",
+    allowAnyWord: mode === "any"
+  };
+}
+
 function profileTitleKeywords(params: ProfileMidasMentionOptions) {
   const userKeywords = profileUserKeywords(params);
 
   if (isKeywordDrivenSearch(params)) {
     // Send only the keyword (and, in expanded mode, close title variants of the
     // same role). Mixing in generic senior titles is what buried the keyword.
-    return (params.keywordMode ?? "expanded") === "exact"
-      ? userKeywords
+    const mode = params.keywordMode ?? "expanded";
+
+    if (mode === "any") return anyKeywordQueryTerms(userKeywords);
+
+    return mode === "exact"
+      ? userKeywords.slice(0, MAX_EXPANDED_KEYWORDS)
       : expandKeywords(userKeywords);
   }
 
@@ -1200,11 +1226,11 @@ export async function findProfileMidasMentions(
     const results = contacts
       .filter((contact) => {
         const title = contactTitle(contact);
-        if (matchKeywords(title, mockKeywords).matchedKeywords.length) return true;
+        if (matchKeywords(title, mockKeywords, keywordMatchOptions(params)).matchedKeywords.length) return true;
         if (mockKeywordDriven) return false;
         return !excludeIrrelevantTitles(title);
       })
-      .map((contact) => buildProfileMidasMentionResult(contact, checkedAt, mockKeywords))
+      .map((contact) => buildProfileMidasMentionResult(contact, checkedAt, mockKeywords, keywordMatchOptions(params)))
       .sort((a, b) => b.decisionMakerScore - a.decisionMakerScore);
 
     return {
@@ -1229,18 +1255,35 @@ export async function findProfileMidasMentions(
   let fallbackApiCalls = 0;
 
   if (keywordDriven) {
-    warnings.push(
-      params.keywordMode === "exact"
-        ? `Exact keyword search: only contacts whose job title contains ${userKeywords.map((keyword) => `"${keyword}"`).join(" or ")} are returned.`
-        : `Keyword search: Lusha was queried for "${userKeywords.join('", "')}" plus close title variants, and results were filtered back to your keyword.`
-    );
+    if (params.keywordMode === "exact") {
+      warnings.push(
+        `Exact keyword search: only contacts whose job title contains ${userKeywords.map((keyword) => `"${keyword}"`).join(" or ")} are returned.`
+      );
+    } else if (params.keywordMode === "any") {
+      const terms = Array.from(new Set(userKeywords.flatMap((keyword) => distinctiveTokens(keyword))));
+      warnings.push(
+        `Any-word keyword search: a contact is kept if their job title contains any of ${terms.join(", ") || "your keywords"}. Generic words such as engineer, manager and director are ignored so they cannot match everyone.`
+      );
+    } else {
+      warnings.push(
+        `Keyword search: Lusha was queried for "${userKeywords.join('", "')}" plus close title variants, and results were filtered back to your keyword.`
+      );
+    }
+
+    if (userKeywords.length > MAX_EXPANDED_KEYWORDS && params.keywordMode !== "any") {
+      warnings.push(
+        `Only the first ${MAX_EXPANDED_KEYWORDS} of your ${userKeywords.length} keywords were sent to Lusha's title filter. The rest are still matched locally against the company-wide recall scan. "Any keyword word" mode avoids the cap entirely.`
+      );
+    }
 
     // Exact mode demands the literal phrase. Expanded mode accepts the role stem,
     // so a "Temporary Works Coordinator" surfaced by the widened query survives a
     // search for "Temporary Works Designer" instead of being filtered back out.
+    // Any mode accepts a single distinctive word from any keyword.
     const exactOnly = params.keywordMode === "exact";
+    const matchOptions = keywordMatchOptions(params);
     const isKeywordMatch = (contact: LushaContact) => {
-      const match = matchKeywords(contactTitle(contact), userKeywords, { allowStem: !exactOnly });
+      const match = matchKeywords(contactTitle(contact), userKeywords, matchOptions);
       return exactOnly ? match.strength === "exact" : match.strength !== "none";
     };
 
@@ -1316,7 +1359,7 @@ export async function findProfileMidasMentions(
   // deciding, arbitrarily, which contacts get considered at all.
   if (keywordDriven) {
     contacts = contacts
-      .map((contact) => ({ contact, score: decisionMakerScore(contact, userKeywords) }))
+      .map((contact) => ({ contact, score: decisionMakerScore(contact, userKeywords, keywordMatchOptions(params)) }))
       .sort((a, b) => b.score - a.score)
       .map((entry) => entry.contact);
   }
@@ -1350,10 +1393,10 @@ export async function findProfileMidasMentions(
     // not noise to be stripped out.
     .filter((contact) => {
       const title = contactTitle(contact);
-      if (matchKeywords(title, userKeywords).matchedKeywords.length) return true;
+      if (matchKeywords(title, userKeywords, keywordMatchOptions(params)).matchedKeywords.length) return true;
       return !excludeIrrelevantTitles(title);
     })
-    .map((contact) => buildProfileMidasMentionResult(contact, checkedAt, userKeywords))
+    .map((contact) => buildProfileMidasMentionResult(contact, checkedAt, userKeywords, keywordMatchOptions(params)))
     .sort((a, b) => b.decisionMakerScore - a.decisionMakerScore);
 
   if (!results.length) {

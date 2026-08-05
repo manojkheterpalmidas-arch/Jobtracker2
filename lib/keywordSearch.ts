@@ -94,7 +94,56 @@ const DISCIPLINE_SYNONYMS: Record<string, string[]> = {
 /** Suffixes tried first, because they cover most real engineering titles. */
 const PRIORITY_SUFFIXES = ["Engineer", "Manager", "Director", "Lead"];
 
-const MAX_EXPANDED_KEYWORDS = 80;
+/**
+ * Lusha's jobTitles filter is an OR set, but a very long array is both slow and
+ * poorly served by its title index, so the query side stays capped. Keywords
+ * beyond the cap are not lost: they still drive local matching against the
+ * company-wide recall scan.
+ */
+export const MAX_EXPANDED_KEYWORDS = 80;
+
+/**
+ * Words that appear in almost every engineering job title. They are dropped when
+ * a keyword is reduced to its distinctive words for "any word" (OR) matching,
+ * because ORing on "Engineer" would match the entire company.
+ */
+const GENERIC_TITLE_WORDS = new Set([
+  "engineer",
+  "engineers",
+  "engineering",
+  "design",
+  "designer",
+  "designs",
+  "manager",
+  "managers",
+  "management",
+  "director",
+  "directors",
+  "lead",
+  "leader",
+  "leads",
+  "head",
+  "senior",
+  "principal",
+  "associate",
+  "chief",
+  "technical",
+  "specialist",
+  "consultant",
+  "coordinator",
+  "supervisor",
+  "analyst",
+  "officer",
+  "team",
+  "discipline",
+  "practice",
+  "regional",
+  "professional",
+  "graduate",
+  "assistant"
+]);
+
+const MIN_DISTINCTIVE_TOKEN_LENGTH = 3;
 
 export function normalizeTitleText(value = "") {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
@@ -127,23 +176,48 @@ function hasToken(normalizedTitle: string, token: string) {
  *                search of "Temporary Works Designer". This is what makes the
  *                widened query worth running: without it, the variants sent to
  *                Lusha would be filtered straight back out.
+ * `word`       - any single distinctive word of the keyword appears, e.g.
+ *                "Senior Ground Engineer" for a search of "Ground Improvement
+ *                Specialist". OR logic; only used by the "any" keyword mode.
  */
-export type KeywordMatchStrength = "exact" | "all_tokens" | "stem" | "none";
+export type KeywordMatchStrength = "exact" | "all_tokens" | "stem" | "word" | "none";
 
 const STRENGTH_ORDER: Record<KeywordMatchStrength, number> = {
-  exact: 3,
-  all_tokens: 2,
-  stem: 1,
+  exact: 4,
+  all_tokens: 3,
+  stem: 2,
+  word: 1,
   none: 0
 };
+
+export interface KeywordMatchOptions {
+  /** Allow the role-stem match used by "keyword + close variants". */
+  allowStem?: boolean;
+  /** Allow a single distinctive word of the keyword to match on its own. */
+  allowAnyWord?: boolean;
+}
+
+/**
+ * The words of a keyword that actually identify the role, i.e. everything left
+ * after stopwords and generic title words are removed. "Ground Improvement
+ * Specialist" reduces to ground / improvement; "Piling Design Engineer" to
+ * piling. A keyword made entirely of generic words, such as "Technical
+ * Director", has nothing distinctive left and returns an empty list, so OR
+ * matching cannot fall back to matching every senior title in the company.
+ */
+export function distinctiveTokens(keyword: string) {
+  return keywordTokens(keyword).filter(
+    (token) => token.length >= MIN_DISTINCTIVE_TOKEN_LENGTH && !GENERIC_TITLE_WORDS.has(token)
+  );
+}
 
 /** How strongly a single title matches a single keyword. */
 export function matchKeyword(
   title: string,
   keyword: string,
-  options: { allowStem?: boolean } = {}
+  options: KeywordMatchOptions = {}
 ): KeywordMatchStrength {
-  const { allowStem = true } = options;
+  const { allowStem = true, allowAnyWord = false } = options;
   const normalizedTitle = normalizeTitleText(title);
   const normalizedKeyword = normalizeTitleText(keyword);
 
@@ -164,6 +238,10 @@ export function matchKeyword(
     }
   }
 
+  if (allowAnyWord && distinctiveTokens(keyword).some((token) => hasToken(normalizedTitle, token))) {
+    return "word";
+  }
+
   return "none";
 }
 
@@ -179,7 +257,7 @@ export interface KeywordMatchResult {
 export function matchKeywords(
   title: string,
   keywords: string[],
-  options: { allowStem?: boolean } = {}
+  options: KeywordMatchOptions = {}
 ): KeywordMatchResult {
   const scored = keywords
     .map((keyword) => ({ keyword, strength: matchKeyword(title, keyword, options) }))
@@ -285,6 +363,50 @@ export function expandKeywords(keywords: string[]): string[] {
   }
 
   return expanded.slice(0, MAX_EXPANDED_KEYWORDS);
+}
+
+/**
+ * Query terms for "any word" (OR) mode. A long keyword list collapses to the
+ * handful of words that actually identify the discipline — 40 geotechnical
+ * titles become Geotechnical / Ground / Improvement / Piling / Foundation /
+ * Earthworks and so on — which is both a far better fit for Lusha's title index
+ * than 40 full phrases and small enough to never hit the query cap.
+ */
+export function anyKeywordQueryTerms(keywords: string[]): string[] {
+  const terms: string[] = [];
+  const seen = new Set<string>();
+
+  function push(value: string) {
+    const cleaned = value.trim().replace(/\s+/g, " ");
+    if (!cleaned) return;
+    const key = normalizeTitleText(cleaned);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    terms.push(cleaned);
+  }
+
+  const distinctive = Array.from(
+    new Set(keywords.flatMap((keyword) => distinctiveTokens(keyword)))
+  );
+
+  // Bare discipline words first: they are the broadest thing Lusha can match.
+  for (const token of distinctive) push(titleCase(token));
+
+  // Then any keyword with no distinctive word of its own — "Technical Director"
+  // — which nothing above covers, so it must not be pushed past the cap.
+  for (const keyword of keywords) {
+    if (!distinctiveTokens(keyword).length) push(keyword);
+  }
+
+  // Then the same words as real titles, which the title index handles better.
+  for (const token of distinctive) {
+    for (const suffix of PRIORITY_SUFFIXES) push(`${titleCase(token)} ${suffix}`);
+  }
+
+  // Finally the literal keywords, if there is room left under the cap.
+  for (const keyword of keywords) push(keyword);
+
+  return terms.slice(0, MAX_EXPANDED_KEYWORDS);
 }
 
 /**

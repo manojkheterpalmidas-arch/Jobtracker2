@@ -36,15 +36,22 @@ The ranking favours titles such as:
 
 When you enter anything in `Job title keywords`, the search becomes **keyword-first**: the keyword decides *who is returned*, and seniority only decides *how those matches are ranked*. This is the difference between asking for a Temporary Works Designer at a contractor and getting one, versus getting a random list of that company's directors.
 
-Three matching modes:
+The keyword list itself is always **OR**: a contact is kept if their title matches any one keyword. Up to 120 keywords can be entered, one per line or comma separated. What differs between modes is how loosely a single keyword is allowed to match.
+
+Four matching modes:
 
 | Mode | Sent to Lusha | Returned |
 | --- | --- | --- |
 | `Keyword + close variants` (default) | Your keyword plus title variants of the same role | Titles matching your keyword or its role stem |
+| `Any keyword word` | The distinctive words of your list, as bare terms and as titles | Titles containing any distinctive word of any keyword |
 | `Exact keyword only` | Your keyword only | Only titles containing the keyword verbatim |
 | `Keyword + seniority titles` | Keyword merged into the generic senior-title list | Everything (old behaviour) |
 
 In the default mode, a search for `Temporary Works Designer` also queries Temporary Works Engineer / Coordinator / Design Manager / Supervisor / Senior + Principal variants, then keeps any title containing the `temporary works` stem. `Technical Director` and `Design Manager` are not returned; `Permanent Works Designer` is not returned.
+
+`Any keyword word` is for pasting a whole discipline's worth of titles. A 60-line geotechnical list collapses to the words that actually identify the role — geotechnical, ground, improvement, piling, foundation, earthworks, embankment, geomechanics — and any title containing one of them is kept, so `Principal Engineer (Geotechnics)` and `Numerical Modeller` survive where the default mode drops them. Generic words (engineer, manager, director, design, senior, head, technical) are stripped out first, so they cannot match the whole company; a keyword made only of generic words, such as `Technical Director`, still has to match as a phrase. This mode is deliberately the broadest — expect adjacent roles alongside the ones you wanted.
+
+Only the first 80 keywords are sent to Lusha's title filter; anything beyond that is still matched locally against the company-wide recall scan, and the search warns when it happens. `Any keyword word` collapses the list before the cap, so it never truncates.
 
 Keyword behaviour differs from the generic search in four ways that matter:
 
@@ -183,6 +190,7 @@ Keyword relevance outweighs generic seniority, so the person you searched for ou
 - Exact keyword match in job title: +60
 - All keyword terms present: +40
 - Role stem match, e.g. `Temporary Works Coordinator` for `Temporary Works Designer`: +30
+- Single distinctive word match, `Any keyword word` mode only: +20
 - Chief / founder / owner / partner / managing director: +28
 - Technical director / director / head: +24
 - Associate / associate director: +20
