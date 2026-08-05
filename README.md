@@ -16,6 +16,15 @@ A Next.js App Router sales-intelligence app for finding engineers who recently j
 - `Decision Makers`: searches up to 20 target company domains together and finds senior engineering contacts who could influence or champion engineering software decisions.
 - `Admin: MIDAS Account Database`: passcode-protected internal database management.
 
+## Bulk email and phone reveal
+
+The `Decision Makers` results table has separate `Get emails` and `Get phones` buttons above the table. Tick the contacts you want, then click one button: emails and phone numbers are pulled independently, so asking for emails never spends credits on phone numbers.
+
+- Both buttons post to `POST /api/reveal-contacts-bulk`, which accepts up to 100 contact IDs per request and enriches them with batched Lusha `contacts/enrich` calls. One API call covers 25 contacts, rather than one call per contact.
+- Anything already stored in `revealed_contact_details` is reused and costs no credits. The status line reports how many were revealed, reused, empty, or failed.
+- Failed contacts stay selected so a retry does not re-bill the ones that already succeeded. If Lusha itself is unavailable, contacts served from storage are still returned.
+- The per-row `Email` and `Phone` buttons still reveal a single contact at a time.
+
 ## Decision Makers
 
 This workflow is different from Job Changes and does not use MIDAS keywords:

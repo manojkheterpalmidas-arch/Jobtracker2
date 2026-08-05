@@ -15,7 +15,6 @@ import {
   type ProfileMentionDiscipline,
   type ProfileMidasMentionRequest,
   type ProfileMidasMentionResponse,
-  type ProfileMidasMentionResult,
   type RevealedContactDetails,
   type SearchRequest
 } from "@/lib/types";
@@ -49,11 +48,6 @@ type ProfileMidasMentionsPageProps = {
   initialResponse?: ProfileMidasMentionResponse | null;
   initialRequest?: DecisionMakerDraft | null;
   onDraftChange?: (request: DecisionMakerDraft) => void;
-  /** Publishes results so other tabs (e.g. bulk contacts) can work on the same people. */
-  onResultsChange?: (results: ProfileMidasMentionResult[]) => void;
-  /** When supplied, revealed emails/phones are shared with the rest of the app. */
-  revealedContactDetails?: Record<string, RevealedContactDetails>;
-  onRevealedContactDetailsChange?: (details: RevealedContactDetails) => void;
 };
 
 type DecisionMakerDraft = Omit<Partial<ProfileMidasMentionRequest>, "discipline"> &
@@ -68,14 +62,7 @@ function toProfileDiscipline(value?: string): ProfileMentionDiscipline {
   return "structural_bridge";
 }
 
-export function ProfileMidasMentionsPage({
-  initialResponse,
-  initialRequest,
-  onDraftChange,
-  onResultsChange,
-  revealedContactDetails: sharedRevealedContactDetails,
-  onRevealedContactDetailsChange: onSharedRevealedContactDetailsChange
-}: ProfileMidasMentionsPageProps) {
+export function ProfileMidasMentionsPage({ initialResponse, initialRequest, onDraftChange }: ProfileMidasMentionsPageProps) {
   const [companyDomainsText, setCompanyDomainsText] = useState("wsp.com");
   const [companyName, setCompanyName] = useState("WSP");
   const [location, setLocation] = useState("United Kingdom");
@@ -86,8 +73,7 @@ export function ProfileMidasMentionsPage({
   const [keywordMode, setKeywordMode] = useState<KeywordMode>("expanded");
   const [localLushaApiKey, setLocalLushaApiKey] = useState("");
   const [response, setResponse] = useState<ProfileMidasMentionResponse | null>(null);
-  const [localRevealedContactDetails, setLocalRevealedContactDetails] = useState<Record<string, RevealedContactDetails>>({});
-  const revealedContactDetails = sharedRevealedContactDetails ?? localRevealedContactDetails;
+  const [revealedContactDetails, setRevealedContactDetails] = useState<Record<string, RevealedContactDetails>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -98,17 +84,9 @@ export function ProfileMidasMentionsPage({
   useEffect(() => {
     if (initialResponse) {
       setResponse(initialResponse);
-      setLocalRevealedContactDetails({});
+      setRevealedContactDetails({});
     }
   }, [initialResponse]);
-
-  // Only a real response is published. Switching tabs unmounts this page, and an
-  // empty remount must not wipe the contacts the bulk tab is holding.
-  useEffect(() => {
-    if (!response) return;
-    onResultsChange?.(response.results);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [response]);
 
   useEffect(() => {
     if (!initialRequest) return;
@@ -148,7 +126,7 @@ export function ProfileMidasMentionsPage({
     event.preventDefault();
     setLoading(true);
     setError("");
-    setLocalRevealedContactDetails({});
+    setRevealedContactDetails({});
     window.sessionStorage.setItem("localLushaApiKey", localLushaApiKey);
 
     const companyDomains = parseDomains(companyDomainsText);
@@ -237,16 +215,11 @@ export function ProfileMidasMentionsPage({
   }
 
   const handleRevealedContactDetailsChange = useCallback((details: RevealedContactDetails) => {
-    if (onSharedRevealedContactDetailsChange) {
-      onSharedRevealedContactDetailsChange(details);
-      return;
-    }
-
-    setLocalRevealedContactDetails((current) => ({
+    setRevealedContactDetails((current) => ({
       ...current,
       [details.contactId]: details
     }));
-  }, [onSharedRevealedContactDetailsChange]);
+  }, []);
   const companyDomains = parseDomains(companyDomainsText);
   const titleKeywordCount = parseKeywords(customTitleKeywords).length;
   const summaryCards: Array<{ label: string; value: string | number }> = response

@@ -331,19 +331,6 @@ export interface BulkRevealResponse {
   warnings: string[];
 }
 
-/** A person the bulk tab can look up, normalised from any result table. */
-export interface BulkContactCandidate {
-  id: string;
-  lushaContactId?: string;
-  personName: string;
-  company: string;
-  companyDomain?: string;
-  title: string;
-  location?: string;
-  linkedinUrl?: string;
-  sourceLabel: string;
-}
-
 export interface LushaSignal {
   id?: string;
   type?: string;

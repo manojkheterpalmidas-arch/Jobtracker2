@@ -6,7 +6,14 @@ import { RevealContactDetails } from "@/components/RevealContactDetails";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DecisionMakerFit, ProfileMidasMentionResult, RevealedContactDetails } from "@/lib/types";
+import { maxBulkRevealContacts } from "@/lib/types";
+import type {
+  BulkRevealResponse,
+  ContactRevealField,
+  DecisionMakerFit,
+  ProfileMidasMentionResult,
+  RevealedContactDetails
+} from "@/lib/types";
 
 type ProfileMidasMentionsTableProps = {
   results: ProfileMidasMentionResult[];
@@ -15,17 +22,9 @@ type ProfileMidasMentionsTableProps = {
   onExportCsv: () => void;
 };
 
-type RevealResponse = {
-  details?: RevealedContactDetails;
-  error?: string;
-  persisted?: boolean;
-  storageWarning?: string;
-};
-
-type BulkRevealFailure = {
-  contactId: string;
-  personName: string;
-  error: string;
+const fieldLabels: Record<ContactRevealField, string> = {
+  emails: "email addresses",
+  phones: "phone numbers"
 };
 
 function fitVariant(fit: DecisionMakerFit) {
@@ -47,7 +46,8 @@ export function ProfileMidasMentionsTable({
   const [titleKeyword, setTitleKeyword] = useState("");
   const [roleKeyword, setRoleKeyword] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
-  const [bulkRevealing, setBulkRevealing] = useState(false);
+  // Which reveal is in flight, so emails and phones can be pulled independently.
+  const [revealingField, setRevealingField] = useState<ContactRevealField | null>(null);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkStatus, setBulkStatus] = useState<{ kind: "success" | "warning"; message: string } | null>(null);
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
@@ -131,105 +131,83 @@ export function ProfileMidasMentionsTable({
     });
   }
 
-  async function revealSelectedContacts() {
-    if (!selectedContactIds.size || bulkRevealing) return;
+  async function revealSelectedContacts(field: ContactRevealField) {
+    if (!selectedContactIds.size || revealingField) return;
 
-    const selectedRecords = Array.from(selectedContactIds)
-      .map((contactId) => results.find((record) => record.lushaContactId === contactId))
-      .filter((record): record is ProfileMidasMentionResult => Boolean(record?.lushaContactId));
+    const contactIds = Array.from(selectedContactIds).filter((contactId) =>
+      results.some((record) => record.lushaContactId === contactId)
+    );
 
-    if (!selectedRecords.length) {
+    if (!contactIds.length) {
       setSelectedContactIds(new Set());
       return;
     }
 
     const confirmed = window.confirm(
-      `Reveal email addresses and phone numbers for ${selectedRecords.length} selected ${selectedRecords.length === 1 ? "contact" : "contacts"}? This may consume Lusha credits.`
+      `Get ${fieldLabels[field]} for ${contactIds.length} selected ${contactIds.length === 1 ? "contact" : "contacts"}? This may consume Lusha credits. Contacts already revealed are reused for free.`
     );
 
     if (!confirmed) return;
 
-    setBulkRevealing(true);
+    setRevealingField(field);
     setBulkProgress(0);
     setBulkStatus(null);
 
-    const failures: BulkRevealFailure[] = [];
-    const storageWarnings: string[] = [];
-    let completed = 0;
-    let cursor = 0;
     const localLushaApiKey = window.sessionStorage.getItem("localLushaApiKey") ?? "";
-
-    async function worker() {
-      while (cursor < selectedRecords.length) {
-        const record = selectedRecords[cursor];
-        cursor += 1;
-
-        try {
-          const result = await fetch("/api/reveal-contact-details", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contactId: record.lushaContactId,
-              reveal: ["emails", "phones"],
-              localLushaApiKey
-            })
-          });
-          const data = await result.json() as RevealResponse;
-
-          if (!result.ok || !data.details) {
-            throw new Error(data.error || "No contact details were returned.");
-          }
-
-          onRevealedContactDetailsChange?.(data.details);
-
-          if (data.persisted === false) {
-            storageWarnings.push(
-              `${record.personName}: ${data.storageWarning || "details were revealed but not saved"}`
-            );
-          }
-        } catch (error) {
-          failures.push({
-            contactId: record.lushaContactId as string,
-            personName: record.personName,
-            error: error instanceof Error ? error.message : "Reveal failed."
-          });
-        } finally {
-          completed += 1;
-          setBulkProgress(completed);
-        }
-      }
-    }
+    const failedIds: string[] = [];
+    const messages: string[] = [];
+    let revealed = 0;
+    let cached = 0;
+    let empty = 0;
 
     try {
-      const workerCount = Math.min(3, selectedRecords.length);
-      await Promise.all(Array.from({ length: workerCount }, () => worker()));
-      const succeeded = selectedRecords.length - failures.length;
+      for (let start = 0; start < contactIds.length; start += maxBulkRevealContacts) {
+        const chunk = contactIds.slice(start, start + maxBulkRevealContacts);
+        const result = await fetch("/api/reveal-contacts-bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactIds: chunk, reveal: [field], localLushaApiKey })
+        });
+        const data = await result.json();
 
-      if (failures.length || storageWarnings.length) {
-        const examples = failures
-          .slice(0, 3)
-          .map((failure) => `${failure.personName}: ${failure.error}`)
-          .join(" · ");
-        const failureMessage = failures.length
-          ? `${succeeded} completed; ${failures.length} failed. ${examples}${failures.length > 3 ? " · More failures not shown." : ""}`
-          : `${succeeded} completed.`;
-        const storageMessage = storageWarnings.length
-          ? ` ${storageWarnings.length} ${storageWarnings.length === 1 ? "contact was" : "contacts were"} revealed but not saved to the database.`
-          : "";
-        setBulkStatus({
-          kind: "warning",
-          message: `${failureMessage}${storageMessage}`
+        if (!result.ok) {
+          throw new Error(data.error || "Reveal failed.");
+        }
+
+        const bulk = data as BulkRevealResponse;
+
+        bulk.results.forEach((entry) => {
+          if (entry.details) {
+            onRevealedContactDetailsChange?.(entry.details);
+          }
+          if (entry.status === "failed") {
+            failedIds.push(entry.contactId);
+          }
         });
-      } else {
-        setBulkStatus({
-          kind: "success",
-          message: `Email and phone reveal completed for ${succeeded} ${succeeded === 1 ? "contact" : "contacts"}.`
-        });
+
+        revealed += bulk.summary.revealed;
+        cached += bulk.summary.cached;
+        empty += bulk.summary.empty;
+        messages.push(...bulk.warnings);
+        setBulkProgress(Math.min(start + chunk.length, contactIds.length));
       }
 
-      setSelectedContactIds(new Set(failures.map((failure) => failure.contactId)));
+      const label = field === "emails" ? "Email" : "Phone";
+      const detail = `${revealed} revealed, ${cached} already stored, ${empty} with none found, ${failedIds.length} failed.`;
+
+      setBulkStatus({
+        kind: failedIds.length || messages.length ? "warning" : "success",
+        message: `${label} reveal finished. ${detail}${messages.length ? ` ${Array.from(new Set(messages)).join(" ")}` : ""}`
+      });
+      // Only failures stay selected so a retry does not re-bill the rest.
+      setSelectedContactIds(new Set(failedIds));
+    } catch (error) {
+      setBulkStatus({
+        kind: "warning",
+        message: error instanceof Error ? error.message : "Reveal failed."
+      });
     } finally {
-      setBulkRevealing(false);
+      setRevealingField(null);
     }
   }
 
@@ -261,20 +239,32 @@ export function ProfileMidasMentionsTable({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              onClick={revealSelectedContacts}
-              disabled={!selectedContactIds.size || bulkRevealing}
+              onClick={() => revealSelectedContacts("emails")}
+              disabled={!selectedContactIds.size || revealingField !== null}
             >
-              {bulkRevealing ? (
+              {revealingField === "emails" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="h-4 w-4" aria-hidden="true" />
-                  <Phone className="h-4 w-4" aria-hidden="true" />
-                </span>
+                <Mail className="h-4 w-4" aria-hidden="true" />
               )}
-              {bulkRevealing
-                ? `Revealing ${bulkProgress}/${selectedContactIds.size}`
-                : `Get email & phone (${selectedContactIds.size})`}
+              {revealingField === "emails"
+                ? `Getting emails ${bulkProgress}/${selectedContactIds.size}`
+                : `Get emails (${selectedContactIds.size})`}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => revealSelectedContacts("phones")}
+              disabled={!selectedContactIds.size || revealingField !== null}
+            >
+              {revealingField === "phones" ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Phone className="h-4 w-4" aria-hidden="true" />
+              )}
+              {revealingField === "phones"
+                ? `Getting phones ${bulkProgress}/${selectedContactIds.size}`
+                : `Get phones (${selectedContactIds.size})`}
             </Button>
             <Button type="button" variant="outline" onClick={onExportCsv}>
               <Download className="h-4 w-4" aria-hidden="true" />
@@ -317,7 +307,8 @@ export function ProfileMidasMentionsTable({
           <Input value={roleKeyword} onChange={(event) => setRoleKeyword(event.target.value)} placeholder="Filter by role signal" />
         </div>
         <p className="text-xs text-muted-foreground">
-          Select contacts in the table, then reveal both email and phone with one click. Cached details are reused.
+          Select contacts in the table, then pull emails and phone numbers separately. Contacts already revealed are reused
+          without spending credits again.
         </p>
         {bulkStatus ? (
           <div
@@ -343,7 +334,7 @@ export function ProfileMidasMentionsTable({
                   type="checkbox"
                   checked={allVisibleSelected}
                   onChange={toggleAllVisible}
-                  disabled={!visibleContactIds.length || bulkRevealing}
+                  disabled={!visibleContactIds.length || revealingField !== null}
                   aria-label="Select all visible contacts"
                   title="Select all visible contacts"
                   className="h-4 w-4 accent-primary"
@@ -371,7 +362,7 @@ export function ProfileMidasMentionsTable({
                     type="checkbox"
                     checked={Boolean(record.lushaContactId && selectedContactIds.has(record.lushaContactId))}
                     onChange={() => record.lushaContactId && toggleContact(record.lushaContactId)}
-                    disabled={!record.lushaContactId || bulkRevealing}
+                    disabled={!record.lushaContactId || revealingField !== null}
                     aria-label={`Select ${record.personName}`}
                     className="h-4 w-4 accent-primary"
                   />
@@ -411,7 +402,7 @@ export function ProfileMidasMentionsTable({
                     contactId={record.lushaContactId}
                     initialDetails={record.lushaContactId ? revealedContactDetails[record.lushaContactId] : undefined}
                     onDetailsChange={onRevealedContactDetailsChange}
-                    disabled={bulkRevealing && Boolean(record.lushaContactId && selectedContactIds.has(record.lushaContactId))}
+                    disabled={revealingField !== null && Boolean(record.lushaContactId && selectedContactIds.has(record.lushaContactId))}
                   />
                 </td>
                 <td className="px-4 py-3">{record.senioritySignals.join(", ") || "-"}</td>
